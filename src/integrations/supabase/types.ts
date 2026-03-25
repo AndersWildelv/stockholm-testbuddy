@@ -14,16 +14,268 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      bookings: {
+        Row: {
+          booked_by: string
+          booked_by_email: string | null
+          created_at: string
+          end_time: string
+          id: string
+          notes: string | null
+          person_id: string
+          start_time: string
+          status: Database["public"]["Enums"]["booking_status"]
+          updated_at: string
+        }
+        Insert: {
+          booked_by: string
+          booked_by_email?: string | null
+          created_at?: string
+          end_time: string
+          id?: string
+          notes?: string | null
+          person_id: string
+          start_time?: string
+          status?: Database["public"]["Enums"]["booking_status"]
+          updated_at?: string
+        }
+        Update: {
+          booked_by?: string
+          booked_by_email?: string | null
+          created_at?: string
+          end_time?: string
+          id?: string
+          notes?: string | null
+          person_id?: string
+          start_time?: string
+          status?: Database["public"]["Enums"]["booking_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_batches: {
+        Row: {
+          created_at: string
+          error_rows: number | null
+          file_name: string
+          id: string
+          imported_by: string
+          published_at: string | null
+          status: string
+          total_rows: number | null
+          valid_rows: number | null
+          validation_report: Json | null
+        }
+        Insert: {
+          created_at?: string
+          error_rows?: number | null
+          file_name: string
+          id?: string
+          imported_by: string
+          published_at?: string | null
+          status?: string
+          total_rows?: number | null
+          valid_rows?: number | null
+          validation_report?: Json | null
+        }
+        Update: {
+          created_at?: string
+          error_rows?: number | null
+          file_name?: string
+          id?: string
+          imported_by?: string
+          published_at?: string | null
+          status?: string
+          total_rows?: number | null
+          valid_rows?: number | null
+          validation_report?: Json | null
+        }
+        Relationships: []
+      }
+      persons: {
+        Row: {
+          additional_attributes: Json | null
+          address: string | null
+          city: string | null
+          created_at: string
+          email: string | null
+          first_name: string
+          hsa_id: string | null
+          id: string
+          is_static: boolean
+          last_name: string
+          municipality: string | null
+          person_id: string
+          person_type: Database["public"]["Enums"]["person_type"]
+          personnummer: string | null
+          phone: string | null
+          postal_code: string | null
+          region: string | null
+          updated_at: string
+        }
+        Insert: {
+          additional_attributes?: Json | null
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          first_name: string
+          hsa_id?: string | null
+          id?: string
+          is_static?: boolean
+          last_name: string
+          municipality?: string | null
+          person_id: string
+          person_type?: Database["public"]["Enums"]["person_type"]
+          personnummer?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          region?: string | null
+          updated_at?: string
+        }
+        Update: {
+          additional_attributes?: Json | null
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          hsa_id?: string | null
+          id?: string
+          is_static?: boolean
+          last_name?: string
+          municipality?: string | null
+          person_id?: string
+          person_type?: Database["public"]["Enums"]["person_type"]
+          personnummer?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          region?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      relations: {
+        Row: {
+          created_at: string
+          id: string
+          person_id: string
+          related_person_id: string
+          relation_type: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          person_id: string
+          related_person_id: string
+          relation_type: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          person_id?: string
+          related_person_id?: string
+          relation_type?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relations_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "relations_related_person_id_fkey"
+            columns: ["related_person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "viewer"
+      booking_status: "active" | "released" | "expired"
+      person_type: "Personal" | "Invånare"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +402,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "viewer"],
+      booking_status: ["active", "released", "expired"],
+      person_type: ["Personal", "Invånare"],
+    },
   },
 } as const
