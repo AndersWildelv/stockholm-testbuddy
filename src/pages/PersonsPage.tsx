@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,10 +16,12 @@ interface Person {
   person_type: string;
   is_static: boolean;
   municipality: string | null;
+  city: string | null;
   hsa_id: string | null;
 }
 
 export default function PersonsPage() {
+  const navigate = useNavigate();
   const [persons, setPersons] = useState<Person[]>([]);
   const [filter, setFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -28,7 +31,7 @@ export default function PersonsPage() {
     async function fetch() {
       const { data } = await supabase
         .from("persons")
-        .select("id, person_id, first_name, last_name, personnummer, person_type, is_static, municipality, hsa_id")
+        .select("id, person_id, first_name, last_name, personnummer, person_type, is_static, municipality, city, hsa_id")
         .order("last_name");
       setPersons(data ?? []);
       setLoading(false);
@@ -55,7 +58,7 @@ export default function PersonsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Personregister</h1>
-        <p className="text-muted-foreground mt-1">{persons.length} testpersoner totalt</p>
+        <p className="text-muted-foreground mt-1">{persons.length} testpersoner totalt – klicka på en person för att se relationer</p>
       </div>
 
       <div className="flex gap-3">
@@ -91,7 +94,7 @@ export default function PersonsPage() {
               <TableHead>Personnummer</TableHead>
               <TableHead>Typ</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Kommun</TableHead>
+              <TableHead>Ort</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -109,7 +112,11 @@ export default function PersonsPage() {
               </TableRow>
             ) : (
               filtered.map((p) => (
-                <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50">
+                <TableRow
+                  key={p.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => navigate(`/relations?person=${p.id}`)}
+                >
                   <TableCell className="font-medium">
                     {p.first_name} {p.last_name}
                   </TableCell>
@@ -131,7 +138,7 @@ export default function PersonsPage() {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell>{p.municipality ?? "–"}</TableCell>
+                  <TableCell>{p.city || p.municipality || "–"}</TableCell>
                 </TableRow>
               ))
             )}

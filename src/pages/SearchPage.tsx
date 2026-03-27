@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Loader2, User, MapPin, Calendar, Shield, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,7 @@ function formatCivil(c: string | null): string {
 }
 
 export default function SearchPage() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<SearchResult | null>(null);
@@ -204,7 +206,7 @@ export default function SearchPage() {
                     </TableHeader>
                     <TableBody>
                       {result.persons.map((person) => (
-                        <TableRow key={person.id}>
+                        <TableRow key={person.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/relations?person=${person.id}`)}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               <User className="h-4 w-4 text-muted-foreground" />
