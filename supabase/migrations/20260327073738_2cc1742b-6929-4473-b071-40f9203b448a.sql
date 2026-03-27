@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS persons_person_id_unique ON public.persons (person_id);
