@@ -66,6 +66,7 @@ function formatCivil(c: string | null): string {
 }
 
 export default function SearchPage() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<SearchResult | null>(null);
