@@ -206,7 +206,7 @@ export default function SearchPage() {
                     </TableHeader>
                     <TableBody>
                       {result.persons.map((person) => (
-                        <TableRow key={person.id}>
+                        <TableRow key={person.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/relations?person=${person.id}`)}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               <User className="h-4 w-4 text-muted-foreground" />
