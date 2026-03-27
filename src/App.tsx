@@ -18,7 +18,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AuthGate() {
-  const { session, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
@@ -28,7 +28,7 @@ function AuthGate() {
     );
   }
 
-  if (!session) return <Login />;
+  if (!isAuthenticated) return <Login />;
 
   return (
     <AppLayout>

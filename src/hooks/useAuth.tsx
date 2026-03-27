@@ -1,85 +1,57 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import { createContext, useContext, useState, ReactNode } from "react";
 
-type AppRole = Database["public"]["Enums"]["app_role"];
+const CORRECT_PASSWORD = "RegionStockholm2026";
 
 interface AuthContextType {
-  session: Session | null;
-  user: User | null;
-  role: AppRole | null;
+  isAuthenticated: boolean;
   isAdmin: boolean;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (password: string) => void;
+  signOut: () => void;
+  // Keep these for compatibility but they're no-ops
+  session: { user: { id: string } } | null;
+  user: { id: string; email: string } | null;
+  role: "admin" | "viewer" | null;
   signUp: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<AppRole | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return sessionStorage.getItem("rs_authenticated") === "true";
+  });
 
-  const fetchRole = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .maybeSingle();
-    setRole(data?.role ?? null);
+  const signIn = (password: string) => {
+    if (password === CORRECT_PASSWORD) {
+      sessionStorage.setItem("rs_authenticated", "true");
+      setIsAuthenticated(true);
+    } else {
+      throw new Error("Fel lösenord");
+    }
   };
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setTimeout(() => fetchRole(session.user.id), 0);
-        } else {
-          setRole(null);
-        }
-        setLoading(false);
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchRole(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+  const signOut = () => {
+    sessionStorage.removeItem("rs_authenticated");
+    setIsAuthenticated(false);
   };
 
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: window.location.origin },
-    });
-    if (error) throw error;
-  };
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
+  const fakeUser = isAuthenticated ? { id: "local-user", email: "user@local" } : null;
+  const fakeSession = isAuthenticated ? { user: fakeUser! } : null;
 
   return (
     <AuthContext.Provider
-      value={{ session, user, role, isAdmin: role === "admin", loading, signIn, signUp, signOut }}
+      value={{
+        isAuthenticated,
+        isAdmin: true,
+        loading: false,
+        signIn,
+        signOut,
+        session: fakeSession,
+        user: fakeUser,
+        role: "admin",
+        signUp: async () => {},
+      }}
     >
       {children}
     </AuthContext.Provider>
