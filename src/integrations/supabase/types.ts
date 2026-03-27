@@ -134,60 +134,96 @@ export type Database = {
         Row: {
           additional_attributes: Json | null
           address: string | null
+          birth_country: string | null
+          birth_date: string | null
           city: string | null
+          civil_status: string | null
+          county_code: string | null
           created_at: string
+          district_code: string | null
           email: string | null
           first_name: string
+          gender: string | null
           hsa_id: string | null
           id: string
+          is_fictitious: boolean
           is_static: boolean
           last_name: string
+          middle_name: string | null
           municipality: string | null
+          municipality_code: string | null
+          parish_code: string | null
           person_id: string
           person_type: Database["public"]["Enums"]["person_type"]
           personnummer: string | null
           phone: string | null
+          pnr_type: string | null
           postal_code: string | null
+          protected_identity: boolean
           region: string | null
           updated_at: string
         }
         Insert: {
           additional_attributes?: Json | null
           address?: string | null
+          birth_country?: string | null
+          birth_date?: string | null
           city?: string | null
+          civil_status?: string | null
+          county_code?: string | null
           created_at?: string
+          district_code?: string | null
           email?: string | null
           first_name: string
+          gender?: string | null
           hsa_id?: string | null
           id?: string
+          is_fictitious?: boolean
           is_static?: boolean
           last_name: string
+          middle_name?: string | null
           municipality?: string | null
+          municipality_code?: string | null
+          parish_code?: string | null
           person_id: string
           person_type?: Database["public"]["Enums"]["person_type"]
           personnummer?: string | null
           phone?: string | null
+          pnr_type?: string | null
           postal_code?: string | null
+          protected_identity?: boolean
           region?: string | null
           updated_at?: string
         }
         Update: {
           additional_attributes?: Json | null
           address?: string | null
+          birth_country?: string | null
+          birth_date?: string | null
           city?: string | null
+          civil_status?: string | null
+          county_code?: string | null
           created_at?: string
+          district_code?: string | null
           email?: string | null
           first_name?: string
+          gender?: string | null
           hsa_id?: string | null
           id?: string
+          is_fictitious?: boolean
           is_static?: boolean
           last_name?: string
+          middle_name?: string | null
           municipality?: string | null
+          municipality_code?: string | null
+          parish_code?: string | null
           person_id?: string
           person_type?: Database["public"]["Enums"]["person_type"]
           personnummer?: string | null
           phone?: string | null
+          pnr_type?: string | null
           postal_code?: string | null
+          protected_identity?: boolean
           region?: string | null
           updated_at?: string
         }
