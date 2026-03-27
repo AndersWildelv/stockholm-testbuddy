@@ -28,7 +28,7 @@ function AuthGate() {
     );
   }
 
-  if (!session) return <Login />;
+  if (!isAuthenticated) return <Login />;
 
   return (
     <AppLayout>
