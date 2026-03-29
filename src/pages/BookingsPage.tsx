@@ -11,6 +11,7 @@ import { format, addDays } from "date-fns";
 import { sv } from "date-fns/locale";
 import { CalendarIcon, Plus, Unlock, Clock, Pencil } from "lucide-react";
 import { BookingDialog } from "@/components/BookingDialog";
+import { PersonEditDialog } from "@/components/PersonEditDialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
