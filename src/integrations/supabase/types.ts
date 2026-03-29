@@ -146,6 +146,7 @@ export type Database = {
           gender: string | null
           hsa_id: string | null
           id: string
+          is_bookable: boolean
           is_fictitious: boolean
           is_static: boolean
           last_name: string
@@ -178,6 +179,7 @@ export type Database = {
           gender?: string | null
           hsa_id?: string | null
           id?: string
+          is_bookable?: boolean
           is_fictitious?: boolean
           is_static?: boolean
           last_name: string
@@ -210,6 +212,7 @@ export type Database = {
           gender?: string | null
           hsa_id?: string | null
           id?: string
+          is_bookable?: boolean
           is_fictitious?: boolean
           is_static?: boolean
           last_name?: string
