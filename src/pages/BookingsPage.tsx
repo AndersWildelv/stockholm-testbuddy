@@ -32,6 +32,7 @@ export default function BookingsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [extendBookingId, setExtendBookingId] = useState<string | null>(null);
   const [newEndDate, setNewEndDate] = useState<Date>(addDays(new Date(), 7));
+  const [editPersonId, setEditPersonId] = useState<string | null>(null);
 
   const fetchBookings = useCallback(async () => {
     const { data } = await supabase
