@@ -1,79 +1,62 @@
 
 
-# Testdata Webapp – Region Stockholm (MVP)
+# Bokningsflöde – Implementeringsplan
 
 ## Översikt
-En central webbapp där team inom Region Stockholm kan söka, boka och hantera testpersoner. Svenskt UI med AI-driven promptsökning, interaktiv relationsgraf, bokningssystem och Excel-import.
+Bygga ett komplett bokningsflöde där användare kan boka testpersoner under en vald tidsperiod, se aktiva bokningar, frigöra dem manuellt, och redigera bokade personers attribut. En ny kolumn `is_bookable` styr vilka personer som kan bokas.
 
-## Autentisering & Roller
-- **Lovable Cloud** för auth (e-post/lösenord)
-- Rollsystem med `user_roles`-tabell: `admin` och `viewer`
-- Admin: full åtkomst (import, bokning, redigering av dynamiska personer)
-- Viewer: läsåtkomst (sökning, persondetaljer, relationer, bokningsstatus)
-- RLS-policies på alla tabeller för rollstyrning
+## Databasändringar
 
-## Datamodell (Supabase)
-- **persons** – identitet, personnummer, namn, attribut (geografi, HSAid, etc.), `is_static` (boolean), `person_type` (härlett: Personal/Invånare baserat på HSAid)
-- **relations** – `person_id`, `related_person_id`, `relation_type`, `valid_from`, `valid_to`
-- **bookings** – `person_id`, `booked_by`, `start_time`, `end_time`, `status`
-- **import_batches** – staging-data, valideringsstatus, felrapport
-- **audit_log** – händelsespårning (importer, bokningar, urval)
+1. **Lägg till `is_bookable`-kolumn på `persons`-tabellen**
+   - `ALTER TABLE persons ADD COLUMN is_bookable boolean NOT NULL DEFAULT true;`
+   - MVP: alla sätts till `true`, men flaggan finns redo för Excel-import
 
-## Sidor & Funktionalitet
+2. **Uppdatera RLS på `bookings`**
+   - Lägg till INSERT/UPDATE-policy för `anon`-rollen (eftersom appen inte använder Supabase Auth utan lösenordsgate)
+   - Alternativt: alla bokningsoperationer via anon med öppna policies
 
-### 1. Dashboard / Startsida
-- Snabbstatistik: antal personer, aktiva bokningar, senaste importer
-- Genvägar till sökning och import
+## Ändringar per fil
 
-### 2. Promptbaserad sökning (FR-2)
-- Fritextfält där användare beskriver önskad testperson på svenska
-- **Lovable AI** tolkar prompten → översätter till databasfilter
-- Deterministisk regelmotor filtrerar och rankar resultat
-- Resultat visar person, ID och motivering för urvalet
-- Sökhistorik loggas i audit_log
+### `src/pages/BookingsPage.tsx` – Ombyggnad
+- **Bokningsformulär** (dialog): Välj testperson (sökbar dropdown, bara `is_bookable` och ej redan bokade), välj start/slut-datum med DatePicker, valfria anteckningar
+- **Bokningslista**: Tabell med alla bokningar, sorterade senaste först. Visar person, tidsperiod, status (Aktiv/Frigiven/Utgången), anteckningar
+- **Åtgärdsknappar per rad**: "Frigör" (sätter status till `released`), "Förläng" (ändra sluttid)
+- Automatisk statusberäkning: om `end_time < now()` → visa som "Utgången"
 
-### 3. Personlista & Detaljvy (FR-1)
-- Tabell med filtrering och sortering (statisk/dynamisk, persontyp, geografi)
-- Tydlig visuell markering: statisk (låsikon) vs dynamisk
-- Detaljpanel med alla attribut, bokningsstatus och relationer
-- Statiska personer: inga redigeringsalternativ visas
+### `src/pages/PersonsPage.tsx` – Mindre tillägg
+- Visa bokningsstatus per person (kolumn "Bokad" med badge)
+- Lägg till "Boka"-knapp som öppnar bokningsdialog direkt för den personen
+- Visa `is_bookable`-flagga (kolumnfilter)
 
-### 4. Bokningssystem (FR-3, FR-4)
-- Admin kan boka dynamisk person med start- och sluttid
-- Förläng eller avsluta bokning
-- Auto-release via scheduled function vid sluttid
-- Bokningsstatus synlig för alla (Viewer kan se vem som bokat)
-- Redigering av dynamisk person tillåts enbart inom aktiv bokning (Admin)
+### `src/pages/PersonDetailPage.tsx` – Ny sida (eller dialog)
+- Visas när man klickar på en bokad person
+- Om personen har aktiv bokning: tillåt redigering av personattribut (namn, adress, etc.)
+- Om ej bokad: skrivskyddat
 
-### 5. Relationsvy (FR-5)
-- Interaktiv graf med noder (personer) och kanter (relationer)
-- Klickbara noder öppnar persondetaljer
-- Relationstyp visas på kanterna
-- Bibliotek: React Flow eller liknande för grafvisualisering
+### Importstöd
+- Uppdatera Excel-importen så att `is_bookable`-kolumnen mappas om den finns i filen
 
-### 6. Excel-import (FR-6, Admin)
-- Uppladdning av Excel-fil → staging-tabell
-- Validering: unika person-ID, obligatoriska fält, kodlistor, relationsreferenser
-- Valideringsrapport per rad/fält med felstatus
-- Publicering till produktion efter godkänd validering
-- Importbatch loggas i audit_log
+## Flöde
 
-### 7. Admin-panel
-- Användarhantering (tilldela roller)
-- Importhistorik och valideringsrapporter
-- Audit-logg med sökbarhet
+```text
+Personregister                    Bokningssida
+┌──────────────┐                 ┌──────────────────┐
+│ Lista alla   │  "Boka" →       │ + Ny bokning     │
+│ testpersoner │                 │                  │
+│ [Bokad/Ledig]│                 │ Aktiva bokningar │
+│              │                 │ ┌──────────────┐ │
+│              │                 │ │ Person X     │ │
+│              │                 │ │ 29/3 → 5/4   │ │
+│              │                 │ │ [Frigör]     │ │
+│              │                 │ └──────────────┘ │
+└──────────────┘                 └──────────────────┘
+```
 
 ## Tekniska detaljer
-- **Frontend**: React + TypeScript + Tailwind + shadcn/ui
-- **Backend**: Lovable Cloud (Supabase) – databas, auth, edge functions
-- **AI-sökning**: Edge function som anropar Lovable AI Gateway för prompt-tolkning, sedan deterministisk SQL-filtrering
-- **Relationsgraf**: React Flow-bibliotek
-- **Excel-parsing**: SheetJS (xlsx) i frontend för förhandsgranskning, edge function för validering
-- **Auto-release**: Supabase scheduled function (pg_cron) för att frigöra utgångna bokningar
 
-## Design
-- Rent, professionellt UI med Region Stockholm-känsla
-- Svenskt språk genomgående
-- Responsivt men desktop-optimerat (primär användning)
-- Tydlig visuell separation mellan statiska och dynamiska personer
+- **DatePicker**: Använder shadcn Calendar i Popover med `pointer-events-auto`
+- **Personväljare**: Combobox/Command-komponent med sökfunktion, filtrerar bort redan bokade och ej bokningsbara
+- **Statuslogik i frontend**: Beräkna om bokning är utgången baserat på `end_time < new Date()`
+- **RLS-anpassning**: Nya policies för `anon`-rollen att kunna INSERT och UPDATE på `bookings`-tabellen (krävs pga lösenordsbaserad auth)
+- **Supabase-query**: `bookings` med join mot `persons` för namn och attribut
 
