@@ -143,6 +143,13 @@ export default function BookingsPage() {
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => setEditPersonId(b.person_id)}
+                          >
+                            <Pencil className="h-3 w-3 mr-1" /> Redigera
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => { setExtendBookingId(b.id); setNewEndDate(addDays(new Date(b.end_time), 7)); }}
                           >
                             <Clock className="h-3 w-3 mr-1" /> Förläng
