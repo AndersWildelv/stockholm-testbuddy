@@ -1,0 +1,1 @@
+ALTER TABLE public.bookings DROP CONSTRAINT bookings_booked_by_fkey;
