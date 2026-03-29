@@ -183,6 +183,13 @@ export default function BookingsPage() {
 
       <BookingDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={fetchBookings} />
 
+      <PersonEditDialog
+        open={!!editPersonId}
+        onOpenChange={(o) => !o && setEditPersonId(null)}
+        personId={editPersonId}
+        onSaved={fetchBookings}
+      />
+
       {/* Extend dialog */}
       <Dialog open={!!extendBookingId} onOpenChange={(o) => !o && setExtendBookingId(null)}>
         <DialogContent className="sm:max-w-sm">
