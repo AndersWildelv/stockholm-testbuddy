@@ -9,8 +9,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { format, addDays } from "date-fns";
 import { sv } from "date-fns/locale";
-import { CalendarIcon, Plus, Unlock, Clock } from "lucide-react";
+import { CalendarIcon, Plus, Unlock, Clock, Pencil } from "lucide-react";
 import { BookingDialog } from "@/components/BookingDialog";
+import { PersonEditDialog } from "@/components/PersonEditDialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -31,6 +32,7 @@ export default function BookingsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [extendBookingId, setExtendBookingId] = useState<string | null>(null);
   const [newEndDate, setNewEndDate] = useState<Date>(addDays(new Date(), 7));
+  const [editPersonId, setEditPersonId] = useState<string | null>(null);
 
   const fetchBookings = useCallback(async () => {
     const { data } = await supabase
@@ -141,6 +143,13 @@ export default function BookingsPage() {
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => setEditPersonId(b.person_id)}
+                          >
+                            <Pencil className="h-3 w-3 mr-1" /> Redigera
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => { setExtendBookingId(b.id); setNewEndDate(addDays(new Date(b.end_time), 7)); }}
                           >
                             <Clock className="h-3 w-3 mr-1" /> Förläng
@@ -173,6 +182,13 @@ export default function BookingsPage() {
       </div>
 
       <BookingDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={fetchBookings} />
+
+      <PersonEditDialog
+        open={!!editPersonId}
+        onOpenChange={(o) => !o && setEditPersonId(null)}
+        personId={editPersonId}
+        onSaved={fetchBookings}
+      />
 
       {/* Extend dialog */}
       <Dialog open={!!extendBookingId} onOpenChange={(o) => !o && setExtendBookingId(null)}>
