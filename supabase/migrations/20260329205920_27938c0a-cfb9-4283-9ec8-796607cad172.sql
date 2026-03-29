@@ -1,0 +1,1 @@
+CREATE POLICY "Anon can update persons" ON public.persons FOR UPDATE TO anon USING (true) WITH CHECK (true);
