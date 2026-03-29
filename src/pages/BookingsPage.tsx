@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { format, addDays } from "date-fns";
 import { sv } from "date-fns/locale";
-import { CalendarIcon, Plus, Unlock, Clock } from "lucide-react";
+import { CalendarIcon, Plus, Unlock, Clock, Pencil } from "lucide-react";
 import { BookingDialog } from "@/components/BookingDialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
