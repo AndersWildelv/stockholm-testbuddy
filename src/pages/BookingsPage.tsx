@@ -23,23 +23,43 @@ interface Booking {
   end_time: string;
   status: string;
   notes: string | null;
-  persons: { first_name: string; last_name: string; person_id: string } | null;
+}
+
+interface PersonInfo {
+  pnr: string;
+  first_name: string | null;
+  last_name: string | null;
 }
 
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [personMap, setPersonMap] = useState<Record<string, PersonInfo>>({});
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [extendBookingId, setExtendBookingId] = useState<string | null>(null);
   const [newEndDate, setNewEndDate] = useState<Date>(addDays(new Date(), 7));
-  const [editPersonId, setEditPersonId] = useState<string | null>(null);
+  const [editPersonPnr, setEditPersonPnr] = useState<string | null>(null);
 
   const fetchBookings = useCallback(async () => {
-    const { data } = await supabase
+    const { data: bookingData } = await supabase
       .from("bookings")
-      .select("id, person_id, booked_by_email, start_time, end_time, status, notes, persons(first_name, last_name, person_id)")
+      .select("id, person_id, booked_by_email, start_time, end_time, status, notes")
       .order("start_time", { ascending: false });
-    setBookings((data as any) ?? []);
+
+    const bookings = (bookingData as Booking[]) ?? [];
+    setBookings(bookings);
+
+    // Fetch person info for all booked pnrs
+    const pnrs = [...new Set(bookings.map(b => b.person_id))];
+    if (pnrs.length > 0) {
+      const { data: persons } = await supabase
+        .from("kp_persons" as any)
+        .select("pnr, first_name, last_name")
+        .in("pnr", pnrs);
+      const map: Record<string, PersonInfo> = {};
+      ((persons as any) ?? []).forEach((p: PersonInfo) => { map[p.pnr] = p; });
+      setPersonMap(map);
+    }
     setLoading(false);
   }, []);
 
@@ -93,6 +113,7 @@ export default function BookingsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Testperson</TableHead>
+              <TableHead>Personnummer</TableHead>
               <TableHead>Start</TableHead>
               <TableHead>Slut</TableHead>
               <TableHead>Status</TableHead>
@@ -103,11 +124,11 @@ export default function BookingsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Laddar...</TableCell>
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Laddar...</TableCell>
               </TableRow>
             ) : bookings.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Inga bokningar finns ännu. Klicka "Ny bokning" för att skapa en.
                 </TableCell>
               </TableRow>
@@ -115,14 +136,13 @@ export default function BookingsPage() {
               bookings.map((b) => {
                 const effective = getEffectiveStatus(b);
                 const config = statusConfig(effective);
+                const person = personMap[b.person_id];
                 return (
                   <TableRow key={b.id}>
                     <TableCell className="font-medium">
-                      {b.persons ? `${b.persons.first_name} ${b.persons.last_name}` : "–"}
-                      {b.persons && (
-                        <span className="ml-2 text-xs text-muted-foreground font-mono">{b.persons.person_id}</span>
-                      )}
+                      {person ? `${person.first_name ?? ""} ${person.last_name ?? ""}` : "–"}
                     </TableCell>
+                    <TableCell className="font-mono text-xs">{b.person_id}</TableCell>
                     <TableCell className="text-sm">
                       {format(new Date(b.start_time), "d MMM yyyy", { locale: sv })}
                     </TableCell>
@@ -140,35 +160,19 @@ export default function BookingsPage() {
                     <TableCell className="text-right">
                       {effective === "active" && (
                         <div className="flex gap-2 justify-end">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditPersonId(b.person_id)}
-                          >
+                          <Button variant="outline" size="sm" onClick={() => setEditPersonPnr(b.person_id)}>
                             <Pencil className="h-3 w-3 mr-1" /> Redigera
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => { setExtendBookingId(b.id); setNewEndDate(addDays(new Date(b.end_time), 7)); }}
-                          >
+                          <Button variant="outline" size="sm" onClick={() => { setExtendBookingId(b.id); setNewEndDate(addDays(new Date(b.end_time), 7)); }}>
                             <Clock className="h-3 w-3 mr-1" /> Förläng
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRelease(b.id)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => handleRelease(b.id)}>
                             <Unlock className="h-3 w-3 mr-1" /> Frigör
                           </Button>
                         </div>
                       )}
                       {effective === "expired" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => { setExtendBookingId(b.id); setNewEndDate(addDays(new Date(), 7)); }}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => { setExtendBookingId(b.id); setNewEndDate(addDays(new Date(), 7)); }}>
                           <Clock className="h-3 w-3 mr-1" /> Förläng
                         </Button>
                       )}
@@ -184,9 +188,9 @@ export default function BookingsPage() {
       <BookingDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={fetchBookings} />
 
       <PersonEditDialog
-        open={!!editPersonId}
-        onOpenChange={(o) => !o && setEditPersonId(null)}
-        personId={editPersonId}
+        open={!!editPersonPnr}
+        onOpenChange={(o) => !o && setEditPersonPnr(null)}
+        personPnr={editPersonPnr}
         onSaved={fetchBookings}
       />
 

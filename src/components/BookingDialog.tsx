@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, addDays } from "date-fns";
 import { sv } from "date-fns/locale";
-import { CalendarIcon, Search } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,24 +14,22 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { toast } from "sonner";
 
 interface BookablePerson {
-  id: string;
-  person_id: string;
-  first_name: string;
-  last_name: string;
-  personnummer: string | null;
+  pnr: string;
+  first_name: string | null;
+  last_name: string | null;
 }
 
 interface BookingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
-  preselectedPersonId?: string | null;
+  preselectedPersonPnr?: string | null;
 }
 
-export function BookingDialog({ open, onOpenChange, onCreated, preselectedPersonId }: BookingDialogProps) {
+export function BookingDialog({ open, onOpenChange, onCreated, preselectedPersonPnr }: BookingDialogProps) {
   const [persons, setPersons] = useState<BookablePerson[]>([]);
-  const [bookedPersonIds, setBookedPersonIds] = useState<Set<string>>(new Set());
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [bookedPnrs, setBookedPnrs] = useState<Set<string>>(new Set());
+  const [selectedPnr, setSelectedPnr] = useState<string | null>(null);
   const [personSearchOpen, setPersonSearchOpen] = useState(false);
   const [endDate, setEndDate] = useState<Date>(addDays(new Date(), 7));
   const [notes, setNotes] = useState("");
@@ -43,42 +40,41 @@ export function BookingDialog({ open, onOpenChange, onCreated, preselectedPerson
     async function load() {
       const [{ data: personData }, { data: bookingData }] = await Promise.all([
         supabase
-          .from("persons")
-          .select("id, person_id, first_name, last_name, personnummer")
-          .eq("is_bookable", true)
+          .from("kp_persons" as any)
+          .select("pnr, first_name, last_name")
           .order("last_name"),
         supabase
           .from("bookings")
           .select("person_id")
           .eq("status", "active"),
       ]);
-      setPersons(personData ?? []);
-      setBookedPersonIds(new Set((bookingData ?? []).map((b: any) => b.person_id)));
+      setPersons((personData as any) ?? []);
+      setBookedPnrs(new Set((bookingData ?? []).map((b: any) => b.person_id)));
     }
     load();
   }, [open]);
 
   useEffect(() => {
-    if (open && preselectedPersonId) {
-      setSelectedPersonId(preselectedPersonId);
+    if (open && preselectedPersonPnr) {
+      setSelectedPnr(preselectedPersonPnr);
     }
-  }, [open, preselectedPersonId]);
+  }, [open, preselectedPersonPnr]);
 
   const availablePersons = useMemo(
-    () => persons.filter((p) => !bookedPersonIds.has(p.id)),
-    [persons, bookedPersonIds]
+    () => persons.filter((p) => !bookedPnrs.has(p.pnr)),
+    [persons, bookedPnrs]
   );
 
-  const selectedPerson = persons.find((p) => p.id === selectedPersonId);
+  const selectedPerson = persons.find((p) => p.pnr === selectedPnr);
 
   const handleSubmit = async () => {
-    if (!selectedPersonId) {
+    if (!selectedPnr) {
       toast.error("Välj en testperson");
       return;
     }
     setSubmitting(true);
     const { error } = await supabase.from("bookings").insert({
-      person_id: selectedPersonId,
+      person_id: selectedPnr,
       end_time: endDate.toISOString(),
       booked_by: "00000000-0000-0000-0000-000000000000",
       booked_by_email: "anon@app",
@@ -90,7 +86,7 @@ export function BookingDialog({ open, onOpenChange, onCreated, preselectedPerson
       return;
     }
     toast.success("Bokning skapad!");
-    setSelectedPersonId(null);
+    setSelectedPnr(null);
     setEndDate(addDays(new Date(), 7));
     setNotes("");
     onOpenChange(false);
@@ -98,7 +94,7 @@ export function BookingDialog({ open, onOpenChange, onCreated, preselectedPerson
   };
 
   const handleClose = () => {
-    setSelectedPersonId(null);
+    setSelectedPnr(null);
     setEndDate(addDays(new Date(), 7));
     setNotes("");
     onOpenChange(false);
@@ -117,27 +113,27 @@ export function BookingDialog({ open, onOpenChange, onCreated, preselectedPerson
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start text-left font-normal">
                   {selectedPerson
-                    ? `${selectedPerson.first_name} ${selectedPerson.last_name} (${selectedPerson.person_id})`
+                    ? `${selectedPerson.first_name ?? ""} ${selectedPerson.last_name ?? ""} (${selectedPerson.pnr})`
                     : "Välj testperson..."}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[380px] p-0 pointer-events-auto" align="start">
                 <Command>
-                  <CommandInput placeholder="Sök namn eller ID..." />
+                  <CommandInput placeholder="Sök namn eller personnummer..." />
                   <CommandList>
                     <CommandEmpty>Inga lediga testpersoner hittades</CommandEmpty>
                     <CommandGroup>
                       {availablePersons.map((p) => (
                         <CommandItem
-                          key={p.id}
-                          value={`${p.first_name} ${p.last_name} ${p.person_id}`}
+                          key={p.pnr}
+                          value={`${p.first_name ?? ""} ${p.last_name ?? ""} ${p.pnr}`}
                           onSelect={() => {
-                            setSelectedPersonId(p.id);
+                            setSelectedPnr(p.pnr);
                             setPersonSearchOpen(false);
                           }}
                         >
                           <span className="font-medium">{p.first_name} {p.last_name}</span>
-                          <span className="ml-2 text-xs text-muted-foreground font-mono">{p.person_id}</span>
+                          <span className="ml-2 text-xs text-muted-foreground font-mono">{p.pnr}</span>
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -180,7 +176,7 @@ export function BookingDialog({ open, onOpenChange, onCreated, preselectedPerson
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={handleClose}>Avbryt</Button>
-          <Button onClick={handleSubmit} disabled={submitting || !selectedPersonId}>
+          <Button onClick={handleSubmit} disabled={submitting || !selectedPnr}>
             {submitting ? "Skapar..." : "Boka"}
           </Button>
         </DialogFooter>
