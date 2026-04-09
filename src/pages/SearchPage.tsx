@@ -1,39 +1,29 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Loader2, User, MapPin, Calendar, Shield, Info } from "lucide-react";
+import { Search, Loader2, User, MapPin, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface PersonResult {
-  id: string;
-  person_id: string;
-  personnummer: string | null;
-  first_name: string;
-  last_name: string;
+  pnr: string;
+  first_name: string | null;
   middle_name: string | null;
-  birth_date: string | null;
+  last_name: string | null;
   gender: string | null;
-  civil_status: string | null;
-  birth_country: string | null;
-  protected_identity: boolean;
-  person_type: string;
-  is_static: boolean;
-  city: string | null;
-  postal_code: string | null;
-  address: string | null;
+  municipality: string | null;
+  county: string | null;
+  fb_postnr: string | null;
+  fb_postort: string | null;
+  fb_address1: string | null;
+  fb_address2: string | null;
+  booked_to_region_stockholm: boolean;
+  hsaid: string | null;
 }
 
 interface SearchResult {
@@ -43,26 +33,10 @@ interface SearchResult {
   total: number;
 }
 
-function calculateAge(birthDate: string): number {
-  const today = new Date();
-  const birth = new Date(birthDate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
-}
-
 function formatGender(g: string | null): string {
   if (g === "M") return "Man";
   if (g === "K") return "Kvinna";
   return g || "–";
-}
-
-function formatCivil(c: string | null): string {
-  if (!c) return "–";
-  const trimmed = c.trim();
-  const map: Record<string, string> = { OG: "Ogift", G: "Gift", S: "Skild", Ä: "Änka/Änkling" };
-  return map[trimmed] || trimmed;
 }
 
 export default function SearchPage() {
@@ -100,21 +74,18 @@ export default function SearchPage() {
   };
 
   const exampleQueries = [
-    "Kvinna över 40 år bosatt i Stockholm",
-    "Man född i Argentina",
+    "Kvinna bosatt i Stockholm",
+    "Person med HSA-ID",
+    "Man i Nacka kommun",
+    "Person bokad till Region Stockholm",
     "Person med efternamn Andersson",
-    "Ogift kvinna under 30 år",
-    "Person bosatt i Nacka kommun",
-    "Äldre person över 65 år",
   ];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Sök testperson</h1>
-        <p className="text-muted-foreground mt-1">
-          Beskriv vilken typ av testperson du behöver med fritext
-        </p>
+        <p className="text-muted-foreground mt-1">Beskriv vilken typ av testperson du behöver med fritext</p>
       </div>
 
       <Card>
@@ -125,7 +96,7 @@ export default function SearchPage() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder='T.ex. "Kvinna över 65 år bosatt i Solna med skyddad identitet"'
+                placeholder='T.ex. "Kvinna bosatt i Solna med HSA-ID"'
                 className="pl-10"
                 disabled={isLoading}
               />
@@ -179,15 +150,11 @@ export default function SearchPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">
-                Sökresultat ({result.total})
-              </CardTitle>
+              <CardTitle className="text-lg">Sökresultat ({result.total})</CardTitle>
             </CardHeader>
             <CardContent>
               {result.persons.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Inga matchande testpersoner hittades. Prova att bredda din sökning.
-                </p>
+                <p className="text-sm text-muted-foreground">Inga matchande testpersoner hittades.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -196,66 +163,39 @@ export default function SearchPage() {
                         <TableHead>Namn</TableHead>
                         <TableHead>Personnummer</TableHead>
                         <TableHead>Kön</TableHead>
-                        <TableHead>Ålder</TableHead>
-                        <TableHead>Ort</TableHead>
-                        <TableHead>Civilstånd</TableHead>
-                        <TableHead>Födelseland</TableHead>
-                        <TableHead>Typ</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Kommun</TableHead>
+                        <TableHead>Postort</TableHead>
+                        <TableHead>HSA-ID</TableHead>
+                        <TableHead>Bokad RS</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {result.persons.map((person) => (
-                        <TableRow key={person.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/relations?person=${person.id}`)}>
+                        <TableRow key={person.pnr} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/relations?person=${person.pnr}`)}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               <User className="h-4 w-4 text-muted-foreground" />
                               <span>
-                                {person.first_name}{" "}
-                                {person.middle_name ? `${person.middle_name} ` : ""}
-                                {person.last_name}
+                                {person.first_name} {person.middle_name ? `${person.middle_name} ` : ""}{person.last_name}
                               </span>
-                              {person.protected_identity && (
-                                <Shield className="h-3.5 w-3.5 text-destructive" />
-                              )}
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {person.personnummer || "–"}
-                          </TableCell>
+                          <TableCell className="font-mono text-xs">{person.pnr}</TableCell>
                           <TableCell>{formatGender(person.gender)}</TableCell>
-                          <TableCell>
-                            {person.birth_date
-                              ? `${calculateAge(person.birth_date)} år`
-                              : "–"}
-                          </TableCell>
+                          <TableCell>{person.municipality || "–"}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
                               <MapPin className="h-3 w-3 text-muted-foreground" />
-                              {person.city || "–"}
+                              {person.fb_postort || "–"}
                             </div>
                           </TableCell>
-                          <TableCell>{formatCivil(person.civil_status)}</TableCell>
-                          <TableCell>{person.birth_country || "–"}</TableCell>
+                          <TableCell className="font-mono text-xs">{person.hsaid || "–"}</TableCell>
                           <TableCell>
-                            <Badge
-                              variant={
-                                person.person_type === "Personal"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                              className="text-xs"
-                            >
-                              {person.person_type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={person.is_static ? "outline" : "default"}
-                              className="text-xs"
-                            >
-                              {person.is_static ? "Statisk" : "Dynamisk"}
-                            </Badge>
+                            {person.booked_to_region_stockholm ? (
+                              <Badge variant="default" className="text-xs">Ja</Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Nej</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -274,9 +214,7 @@ export default function SearchPage() {
             <CardTitle className="text-lg">Sökresultat</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Ange en sökning ovan för att hitta matchande testpersoner.
-            </p>
+            <p className="text-sm text-muted-foreground">Ange en sökning ovan för att hitta matchande testpersoner.</p>
           </CardContent>
         </Card>
       )}

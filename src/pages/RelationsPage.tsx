@@ -17,43 +17,45 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { User, MapPin, Calendar, Shield, GitFork, ArrowLeft, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { User, MapPin, GitFork, ArrowLeft, X, Search } from "lucide-react";
+
+// Excluded relation types
+const EXCLUDED_REL_TYPES = ["GR", "KO", "Granne", "Kollega", "granne", "kollega", "neighbor", "colleague", "Neighbor", "Colleague"];
 
 interface PersonData {
-  id: string;
-  person_id: string;
-  first_name: string;
-  last_name: string;
+  pnr: string;
+  first_name: string | null;
   middle_name: string | null;
-  personnummer: string | null;
-  birth_date: string | null;
+  last_name: string | null;
   gender: string | null;
-  civil_status: string | null;
-  birth_country: string | null;
-  protected_identity: boolean;
-  person_type: string;
-  is_static: boolean;
-  city: string | null;
-  postal_code: string | null;
-  address: string | null;
+  municipality: string | null;
+  county: string | null;
+  fb_postnr: string | null;
+  fb_postort: string | null;
+  fb_address1: string | null;
+  fb_address2: string | null;
+  booked_to_region_stockholm: boolean;
+  hsaid: string | null;
 }
 
 interface RelationData {
-  id: string;
-  person_id: string;
-  related_person_id: string;
-  relation_type: string;
-  valid_from: string | null;
-  valid_to: string | null;
+  id: number;
+  person_a: string;
+  person_b: string;
+  rel_typ: string;
+  relation_label: string | null;
+  status: string | null;
+  start_date: string | null;
+  end_date: string | null;
 }
 
-function calculateAge(birthDate: string): number {
-  const today = new Date();
-  const birth = new Date(birthDate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
+function isExcludedRelation(r: RelationData): boolean {
+  if (EXCLUDED_REL_TYPES.some(t => r.rel_typ?.toLowerCase() === t.toLowerCase())) return true;
+  if (r.relation_label && EXCLUDED_REL_TYPES.some(t => r.relation_label!.toLowerCase().includes(t.toLowerCase()))) return true;
+  return false;
 }
 
 function formatGender(g: string | null): string {
@@ -62,136 +64,99 @@ function formatGender(g: string | null): string {
   return g || "–";
 }
 
-function formatCivil(c: string | null): string {
-  if (!c) return "–";
-  const trimmed = c.trim();
-  const map: Record<string, string> = { OG: "Ogift", G: "Gift", S: "Skild", Ä: "Änka/Änkling" };
-  return map[trimmed] || trimmed;
-}
-
 export default function RelationsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const personId = searchParams.get("person");
+  const personPnr = searchParams.get("person");
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonData | null>(null);
   const [allPersons, setAllPersons] = useState<PersonData[]>([]);
+  const [allRelations, setAllRelations] = useState<RelationData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load graph data for a specific person
-  const loadGraphForPerson = useCallback(async (focusPersonId: string) => {
+  // Search between two persons
+  const [searchPnr1, setSearchPnr1] = useState("");
+  const [searchPnr2, setSearchPnr2] = useState("");
+  const [relTypeFilter, setRelTypeFilter] = useState<string>("all");
+  const [availableRelTypes, setAvailableRelTypes] = useState<string[]>([]);
+
+  // Relation list for selected person
+  const [personRelations, setPersonRelations] = useState<RelationData[]>([]);
+
+  const loadGraphForPerson = useCallback(async (focusPnr: string) => {
     setLoading(true);
 
-    // Fetch all relations involving this person
+    // Fetch all relations involving this person (excluding neighbors/colleagues)
     const { data: relations } = await supabase
-      .from("relations")
+      .from("kp_person_relationships" as any)
       .select("*")
-      .or(`person_id.eq.${focusPersonId},related_person_id.eq.${focusPersonId}`);
+      .or(`person_a.eq.${focusPnr},person_b.eq.${focusPnr}`);
 
-    if (!relations || relations.length === 0) {
-      // No relations, just show the person alone
-      const { data: person } = await supabase
-        .from("persons")
-        .select("id, person_id, first_name, last_name, middle_name, personnummer, birth_date, gender, civil_status, birth_country, protected_identity, person_type, is_static, city, postal_code, address")
-        .eq("id", focusPersonId)
-        .single();
+    const filtered = ((relations as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
 
-      if (person) {
-        setAllPersons([person as PersonData]);
-        setSelectedPerson(person as PersonData);
-        setNodes([
-          {
-            id: person.id,
-            position: { x: 400, y: 300 },
-            data: { label: `${person.first_name} ${person.last_name}` },
-            style: {
-              background: "hsl(211, 68%, 40%)",
-              color: "white",
-              border: "2px solid hsl(211, 68%, 30%)",
-              borderRadius: "12px",
-              padding: "12px 20px",
-              fontSize: "14px",
-              fontWeight: "600",
-              minWidth: "140px",
-              textAlign: "center" as const,
-            },
-          },
-        ]);
-        setEdges([]);
-      }
-      setLoading(false);
-      return;
-    }
-
-    // Collect all person IDs involved
-    const personIds = new Set<string>();
-    personIds.add(focusPersonId);
-    relations.forEach((r: RelationData) => {
-      personIds.add(r.person_id);
-      personIds.add(r.related_person_id);
+    // Collect person pnrs
+    const pnrs = new Set<string>();
+    pnrs.add(focusPnr);
+    filtered.forEach((r: RelationData) => {
+      pnrs.add(r.person_a);
+      pnrs.add(r.person_b);
     });
 
-    // Also fetch 2nd-degree relations for connected persons
-    const connectedIds = Array.from(personIds);
-    const { data: secondDegreeRelations } = await supabase
-      .from("relations")
+    // Fetch 2nd degree relations
+    const connectedPnrs = Array.from(pnrs);
+    const { data: secondDeg } = await supabase
+      .from("kp_person_relationships" as any)
       .select("*")
       .or(
-        connectedIds.map(id => `person_id.eq.${id}`).join(",") + "," +
-        connectedIds.map(id => `related_person_id.eq.${id}`).join(",")
+        connectedPnrs.map(p => `person_a.eq.${p}`).join(",") + "," +
+        connectedPnrs.map(p => `person_b.eq.${p}`).join(",")
       );
 
-    if (secondDegreeRelations) {
-      secondDegreeRelations.forEach((r: RelationData) => {
-        personIds.add(r.person_id);
-        personIds.add(r.related_person_id);
-      });
-    }
+    const secondFiltered = ((secondDeg as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
+    secondFiltered.forEach((r: RelationData) => {
+      pnrs.add(r.person_a);
+      pnrs.add(r.person_b);
+    });
 
-    const allRelations = [...relations, ...(secondDegreeRelations || [])];
-    // Deduplicate relations by id
-    const uniqueRelations = Array.from(new Map(allRelations.map(r => [r.id, r])).values());
+    const uniqueRelations = Array.from(
+      new Map([...filtered, ...secondFiltered].map((r: RelationData) => [r.id, r])).values()
+    );
 
-    // Fetch all persons
+    setAllRelations(uniqueRelations);
+    setPersonRelations(filtered);
+
+    // Collect all rel_types for filter
+    const relTypes = ([...new Set(uniqueRelations.map((r: RelationData) => r.rel_typ))] as string[]).filter(Boolean).sort();
+    setAvailableRelTypes(relTypes);
+
+    // Fetch persons
     const { data: persons } = await supabase
-      .from("persons")
-      .select("id, person_id, first_name, last_name, middle_name, personnummer, birth_date, gender, civil_status, birth_country, protected_identity, person_type, is_static, city, postal_code, address")
-      .in("id", Array.from(personIds));
+      .from("kp_persons" as any)
+      .select("pnr, first_name, middle_name, last_name, gender, municipality, county, fb_postnr, fb_postort, fb_address1, fb_address2, booked_to_region_stockholm, hsaid")
+      .in("pnr", Array.from(pnrs));
 
-    if (!persons) {
-      setLoading(false);
-      return;
-    }
+    if (!persons) { setLoading(false); return; }
 
-    setAllPersons(persons as PersonData[]);
+    setAllPersons(persons as unknown as PersonData[]);
+    const focusPerson = (persons as unknown as PersonData[]).find(p => p.pnr === focusPnr);
+    if (focusPerson) setSelectedPerson(focusPerson);
 
-    // Find the focus person
-    const focusPerson = persons.find(p => p.id === focusPersonId);
-    if (focusPerson) setSelectedPerson(focusPerson as PersonData);
-
-    // Layout: place focus in center, others in a circle
-    const otherPersons = persons.filter(p => p.id !== focusPersonId);
-    const centerX = 450;
-    const centerY = 350;
-    const radius = 280;
+    // Build nodes
+    const otherPersons = (persons as unknown as PersonData[]).filter(p => p.pnr !== focusPnr);
+    const centerX = 450, centerY = 350, radius = 280;
 
     const newNodes: Node[] = [
       {
-        id: focusPersonId,
+        id: focusPnr,
         position: { x: centerX - 70, y: centerY - 20 },
-        data: { label: focusPerson ? `${focusPerson.first_name} ${focusPerson.last_name}` : "Okänd" },
+        data: { label: focusPerson ? `${focusPerson.first_name ?? ""} ${focusPerson.last_name ?? ""}` : focusPnr },
         style: {
-          background: "hsl(211, 68%, 40%)",
-          color: "white",
-          border: "3px solid hsl(211, 68%, 25%)",
-          borderRadius: "12px",
-          padding: "12px 20px",
-          fontSize: "14px",
-          fontWeight: "700",
-          minWidth: "140px",
-          textAlign: "center" as const,
+          background: "hsl(211, 68%, 40%)", color: "white",
+          border: "3px solid hsl(211, 68%, 25%)", borderRadius: "12px",
+          padding: "12px 20px", fontSize: "14px", fontWeight: "700",
+          minWidth: "140px", textAlign: "center" as const,
           boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
         },
       },
@@ -199,69 +164,40 @@ export default function RelationsPage() {
 
     otherPersons.forEach((p, i) => {
       const angle = (2 * Math.PI * i) / otherPersons.length - Math.PI / 2;
-      const x = centerX + radius * Math.cos(angle) - 70;
-      const y = centerY + radius * Math.sin(angle) - 20;
-
       newNodes.push({
-        id: p.id,
-        position: { x, y },
-        data: { label: `${p.first_name} ${p.last_name}` },
+        id: p.pnr,
+        position: { x: centerX + radius * Math.cos(angle) - 70, y: centerY + radius * Math.sin(angle) - 20 },
+        data: { label: `${p.first_name ?? ""} ${p.last_name ?? ""}` },
         style: {
-          background: "hsl(var(--card))",
-          color: "hsl(var(--card-foreground))",
-          border: "2px solid hsl(var(--border))",
-          borderRadius: "10px",
-          padding: "10px 16px",
-          fontSize: "13px",
-          fontWeight: "500",
-          minWidth: "120px",
-          textAlign: "center" as const,
-          cursor: "pointer",
+          background: "hsl(var(--card))", color: "hsl(var(--card-foreground))",
+          border: "2px solid hsl(var(--border))", borderRadius: "10px",
+          padding: "10px 16px", fontSize: "13px", fontWeight: "500",
+          minWidth: "120px", textAlign: "center" as const, cursor: "pointer",
         },
       });
     });
 
-    // Build edges from unique relations
     const relationColors: Record<string, string> = {
-      "Gift med": "#e11d48",
-      "Syskon": "#2563eb",
-      "Dotter till": "#7c3aed",
-      "Son till": "#7c3aed",
-      "Förälder": "#7c3aed",
-      "Kusin": "#0891b2",
-      "Granne": "#65a30d",
-      "Kollega": "#d97706",
-      "Mentor": "#9333ea",
+      "M": "#e11d48", "Gift med": "#e11d48",
+      "B": "#7c3aed", "Barn": "#7c3aed",
+      "SY": "#2563eb", "Syskon": "#2563eb",
+      "FA": "#7c3aed", "Förälder": "#7c3aed",
+      "KU": "#0891b2", "Kusin": "#0891b2",
     };
 
     const newEdges: Edge[] = uniqueRelations.map((r: RelationData) => ({
-      id: r.id,
-      source: r.person_id,
-      target: r.related_person_id,
-      label: r.relation_type,
+      id: String(r.id),
+      source: r.person_a,
+      target: r.person_b,
+      label: r.relation_label || r.rel_typ,
       type: "default",
-      animated: r.relation_type === "Gift med",
-      style: {
-        stroke: relationColors[r.relation_type] || "#888",
-        strokeWidth: 2,
-      },
-      labelStyle: {
-        fontSize: "11px",
-        fontWeight: "600",
-        fill: relationColors[r.relation_type] || "#888",
-      },
-      labelBgStyle: {
-        fill: "hsl(var(--background))",
-        fillOpacity: 0.9,
-      },
+      animated: r.rel_typ === "M",
+      style: { stroke: relationColors[r.rel_typ] || "#888", strokeWidth: 2 },
+      labelStyle: { fontSize: "11px", fontWeight: "600", fill: relationColors[r.rel_typ] || "#888" },
+      labelBgStyle: { fill: "hsl(var(--background))", fillOpacity: 0.9 },
       labelBgPadding: [6, 4] as [number, number],
       labelBgBorderRadius: 4,
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: relationColors[r.relation_type] || "#888",
-        width: 16,
-        height: 16,
-      },
+      markerEnd: { type: MarkerType.ArrowClosed, color: relationColors[r.rel_typ] || "#888", width: 16, height: 16 },
     }));
 
     setNodes(newNodes);
@@ -269,93 +205,61 @@ export default function RelationsPage() {
     setLoading(false);
   }, [setNodes, setEdges]);
 
-  // Load all persons with relations if no specific person selected
   const loadAllRelations = useCallback(async () => {
     setLoading(true);
 
     const { data: relations } = await supabase
-      .from("relations")
-      .select("*");
+      .from("kp_person_relationships" as any)
+      .select("*")
+      .limit(500);
 
-    if (!relations || relations.length === 0) {
-      setLoading(false);
-      return;
-    }
+    const filtered = ((relations as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
+    if (filtered.length === 0) { setLoading(false); return; }
 
-    const personIds = new Set<string>();
-    relations.forEach((r: RelationData) => {
-      personIds.add(r.person_id);
-      personIds.add(r.related_person_id);
-    });
+    setAllRelations(filtered);
+    const relTypes = ([...new Set(filtered.map((r: RelationData) => r.rel_typ))] as string[]).filter(Boolean).sort();
+    setAvailableRelTypes(relTypes);
+
+    const pnrs = new Set<string>();
+    filtered.forEach((r: RelationData) => { pnrs.add(r.person_a); pnrs.add(r.person_b); });
 
     const { data: persons } = await supabase
-      .from("persons")
-      .select("id, person_id, first_name, last_name, middle_name, personnummer, birth_date, gender, civil_status, birth_country, protected_identity, person_type, is_static, city, postal_code, address")
-      .in("id", Array.from(personIds));
+      .from("kp_persons" as any)
+      .select("pnr, first_name, middle_name, last_name, gender, municipality, county, fb_postnr, fb_postort, fb_address1, fb_address2, booked_to_region_stockholm, hsaid")
+      .in("pnr", Array.from(pnrs));
 
-    if (!persons) {
-      setLoading(false);
-      return;
-    }
+    if (!persons) { setLoading(false); return; }
+    setAllPersons(persons as unknown as PersonData[]);
 
-    setAllPersons(persons as PersonData[]);
-
-    // Grid layout
-    const cols = Math.ceil(Math.sqrt(persons.length));
-    const newNodes: Node[] = persons.map((p, i) => ({
-      id: p.id,
+    const cols = Math.ceil(Math.sqrt((persons as unknown as any[]).length));
+    const newNodes: Node[] = (persons as unknown as PersonData[]).map((p, i) => ({
+      id: p.pnr,
       position: { x: (i % cols) * 220 + 50, y: Math.floor(i / cols) * 120 + 50 },
-      data: { label: `${p.first_name} ${p.last_name}` },
+      data: { label: `${p.first_name ?? ""} ${p.last_name ?? ""}` },
       style: {
-        background: "hsl(var(--card))",
-        color: "hsl(var(--card-foreground))",
-        border: "2px solid hsl(var(--border))",
-        borderRadius: "10px",
-        padding: "10px 16px",
-        fontSize: "13px",
-        fontWeight: "500",
-        minWidth: "120px",
-        textAlign: "center" as const,
-        cursor: "pointer",
+        background: "hsl(var(--card))", color: "hsl(var(--card-foreground))",
+        border: "2px solid hsl(var(--border))", borderRadius: "10px",
+        padding: "10px 16px", fontSize: "13px", fontWeight: "500",
+        minWidth: "120px", textAlign: "center" as const, cursor: "pointer",
       },
     }));
 
     const relationColors: Record<string, string> = {
-      "Gift med": "#e11d48",
-      "Syskon": "#2563eb",
-      "Dotter till": "#7c3aed",
-      "Kusin": "#0891b2",
-      "Granne": "#65a30d",
-      "Kollega": "#d97706",
-      "Mentor": "#9333ea",
+      "M": "#e11d48", "B": "#7c3aed", "SY": "#2563eb", "FA": "#7c3aed", "KU": "#0891b2",
     };
 
-    // Deduplicate
-    const uniqueRelations = Array.from(new Map(relations.map((r: RelationData) => [r.id, r])).values());
-    const newEdges: Edge[] = uniqueRelations.map((r: RelationData) => ({
-      id: r.id,
-      source: r.person_id,
-      target: r.related_person_id,
-      label: r.relation_type,
-      animated: r.relation_type === "Gift med",
-      style: {
-        stroke: relationColors[r.relation_type] || "#888",
-        strokeWidth: 2,
-      },
-      labelStyle: {
-        fontSize: "11px",
-        fontWeight: "600",
-        fill: relationColors[r.relation_type] || "#888",
-      },
+    const newEdges: Edge[] = filtered.map((r: RelationData) => ({
+      id: String(r.id),
+      source: r.person_a,
+      target: r.person_b,
+      label: r.relation_label || r.rel_typ,
+      animated: r.rel_typ === "M",
+      style: { stroke: relationColors[r.rel_typ] || "#888", strokeWidth: 2 },
+      labelStyle: { fontSize: "11px", fontWeight: "600", fill: relationColors[r.rel_typ] || "#888" },
       labelBgStyle: { fill: "hsl(var(--background))", fillOpacity: 0.9 },
       labelBgPadding: [6, 4] as [number, number],
       labelBgBorderRadius: 4,
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: relationColors[r.relation_type] || "#888",
-        width: 16,
-        height: 16,
-      },
+      markerEnd: { type: MarkerType.ArrowClosed, color: relationColors[r.rel_typ] || "#888", width: 16, height: 16 },
     }));
 
     setNodes(newNodes);
@@ -364,15 +268,15 @@ export default function RelationsPage() {
   }, [setNodes, setEdges]);
 
   useEffect(() => {
-    if (personId) {
-      loadGraphForPerson(personId);
+    if (personPnr) {
+      loadGraphForPerson(personPnr);
     } else {
       loadAllRelations();
     }
-  }, [personId, loadGraphForPerson, loadAllRelations]);
+  }, [personPnr, loadGraphForPerson, loadAllRelations]);
 
   const handleNodeClick = useCallback((_: any, node: Node) => {
-    const person = allPersons.find(p => p.id === node.id);
+    const person = allPersons.find(p => p.pnr === node.id);
     if (person) setSelectedPerson(person);
   }, [allPersons]);
 
@@ -380,26 +284,100 @@ export default function RelationsPage() {
     navigate(`/relations?person=${node.id}`);
   }, [navigate]);
 
+  // Search relation between two persons
+  const searchResults = searchPnr1 && searchPnr2
+    ? allRelations.filter(r =>
+        (r.person_a === searchPnr1 && r.person_b === searchPnr2) ||
+        (r.person_a === searchPnr2 && r.person_b === searchPnr1)
+      )
+    : [];
+
+  // Filtered relations for the person
+  const filteredPersonRelations = personRelations.filter(r =>
+    relTypeFilter === "all" || r.rel_typ === relTypeFilter
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Relationer</h1>
           <p className="text-muted-foreground mt-1">
-            {personId
+            {personPnr
               ? "Relationsgraf för vald person – dubbelklicka på en nod för att fokusera"
               : "Översikt av alla relationer – klicka för info, dubbelklicka för att fokusera"}
           </p>
         </div>
-        {personId && (
+        {personPnr && (
           <Button variant="outline" onClick={() => navigate("/relations")} className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Visa alla
+            <ArrowLeft className="h-4 w-4" /> Visa alla
           </Button>
         )}
       </div>
 
-      <div className="flex gap-4" style={{ height: "calc(100vh - 200px)" }}>
+      {/* Search between two persons */}
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Person A (pnr)</label>
+              <Input placeholder="Personnummer..." value={searchPnr1} onChange={e => setSearchPnr1(e.target.value)} className="w-44" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Person B (pnr)</label>
+              <Input placeholder="Personnummer..." value={searchPnr2} onChange={e => setSearchPnr2(e.target.value)} className="w-44" />
+            </div>
+            {availableRelTypes.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Relationstyp</label>
+                <Select value={relTypeFilter} onValueChange={setRelTypeFilter}>
+                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alla</SelectItem>
+                    {availableRelTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          {searchPnr1 && searchPnr2 && (
+            <div className="mt-3">
+              {searchResults.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Ingen relation hittad mellan dessa personer.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Person A</TableHead>
+                      <TableHead>Person B</TableHead>
+                      <TableHead>Typ</TableHead>
+                      <TableHead>Etikett</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Från</TableHead>
+                      <TableHead>Till</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {searchResults.map(r => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-mono text-xs">{r.person_a}</TableCell>
+                        <TableCell className="font-mono text-xs">{r.person_b}</TableCell>
+                        <TableCell>{r.rel_typ}</TableCell>
+                        <TableCell>{r.relation_label || "–"}</TableCell>
+                        <TableCell>{r.status || "–"}</TableCell>
+                        <TableCell>{r.start_date || "–"}</TableCell>
+                        <TableCell>{r.end_date || "–"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-4" style={{ height: "calc(100vh - 360px)" }}>
         {/* Graph */}
         <div className="flex-1 rounded-lg border bg-card overflow-hidden">
           {loading ? (
@@ -414,48 +392,30 @@ export default function RelationsPage() {
               <div className="text-center space-y-2">
                 <GitFork className="h-12 w-12 mx-auto opacity-30" />
                 <p>Inga relationer hittades</p>
-                <p className="text-xs">Denna person har inga registrerade relationer</p>
               </div>
             </div>
           ) : (
             <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onNodeClick={handleNodeClick}
-              onNodeDoubleClick={handleNodeDoubleClick}
+              nodes={nodes} edges={edges}
+              onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+              onNodeClick={handleNodeClick} onNodeDoubleClick={handleNodeDoubleClick}
               connectionLineType={ConnectionLineType.SmoothStep}
-              fitView
-              fitViewOptions={{ padding: 0.3 }}
-              minZoom={0.3}
-              maxZoom={2}
+              fitView fitViewOptions={{ padding: 0.3 }}
+              minZoom={0.3} maxZoom={2}
               proOptions={{ hideAttribution: true }}
             >
               <Background color="hsl(var(--border))" gap={20} size={1} />
-              <Controls
-                showInteractive={false}
-                style={{ bottom: 20, left: 20 }}
-              />
+              <Controls showInteractive={false} style={{ bottom: 20, left: 20 }} />
               <Panel position="top-right">
                 <div className="flex gap-2 flex-wrap text-xs">
                   {[
-                    { label: "Gift med", color: "#e11d48" },
-                    { label: "Syskon", color: "#2563eb" },
-                    { label: "Familj", color: "#7c3aed" },
-                    { label: "Kusin", color: "#0891b2" },
-                    { label: "Granne", color: "#65a30d" },
-                    { label: "Kollega", color: "#d97706" },
-                    { label: "Mentor", color: "#9333ea" },
+                    { label: "Gift (M)", color: "#e11d48" },
+                    { label: "Barn (B)", color: "#7c3aed" },
+                    { label: "Syskon (SY)", color: "#2563eb" },
+                    { label: "Kusin (KU)", color: "#0891b2" },
                   ].map((item) => (
-                    <span
-                      key={item.label}
-                      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-background/80 border"
-                    >
-                      <span
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
+                    <span key={item.label} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-background/80 border">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                       {item.label}
                     </span>
                   ))}
@@ -471,13 +431,9 @@ export default function RelationsPage() {
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Personinformation
+                  <User className="h-4 w-4" /> Personinformation
                 </CardTitle>
-                <button
-                  onClick={() => setSelectedPerson(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
+                <button onClick={() => setSelectedPerson(null)} className="text-muted-foreground hover:text-foreground">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -485,63 +441,63 @@ export default function RelationsPage() {
             <CardContent className="space-y-4">
               <div>
                 <h3 className="font-semibold text-lg">
-                  {selectedPerson.first_name}{" "}
-                  {selectedPerson.middle_name ? `${selectedPerson.middle_name} ` : ""}
-                  {selectedPerson.last_name}
+                  {selectedPerson.first_name} {selectedPerson.middle_name ? `${selectedPerson.middle_name} ` : ""}{selectedPerson.last_name}
                 </h3>
                 <div className="flex gap-2 mt-1.5">
-                  <Badge variant={selectedPerson.person_type === "Personal" ? "default" : "secondary"} className="text-xs">
-                    {selectedPerson.person_type}
-                  </Badge>
-                  <Badge variant={selectedPerson.is_static ? "outline" : "default"} className="text-xs">
-                    {selectedPerson.is_static ? "Statisk" : "Dynamisk"}
-                  </Badge>
-                  {selectedPerson.protected_identity && (
-                    <Badge variant="destructive" className="text-xs gap-1">
-                      <Shield className="h-3 w-3" /> Skyddad
-                    </Badge>
+                  {selectedPerson.booked_to_region_stockholm && (
+                    <Badge variant="default" className="text-xs">Bokad RS</Badge>
+                  )}
+                  {selectedPerson.hsaid && (
+                    <Badge variant="secondary" className="text-xs">HSA: {selectedPerson.hsaid}</Badge>
                   )}
                 </div>
               </div>
 
               <div className="space-y-2.5 text-sm">
-                <InfoRow label="Personnummer" value={selectedPerson.personnummer} mono />
-                <InfoRow label="Person-ID" value={selectedPerson.person_id} mono />
+                <InfoRow label="Personnummer" value={selectedPerson.pnr} mono />
                 <InfoRow label="Kön" value={formatGender(selectedPerson.gender)} />
-                <InfoRow
-                  label="Ålder"
-                  value={selectedPerson.birth_date ? `${calculateAge(selectedPerson.birth_date)} år (${selectedPerson.birth_date})` : null}
-                />
-                <InfoRow label="Civilstånd" value={formatCivil(selectedPerson.civil_status)} />
-                <InfoRow label="Födelseland" value={selectedPerson.birth_country} />
+                <InfoRow label="Kommun" value={selectedPerson.municipality} />
+                <InfoRow label="Län" value={selectedPerson.county} />
 
-                {(selectedPerson.address || selectedPerson.city) && (
+                {(selectedPerson.fb_address1 || selectedPerson.fb_postort) && (
                   <div className="pt-2 border-t">
                     <div className="flex items-start gap-2 text-muted-foreground mb-1">
                       <MapPin className="h-3.5 w-3.5 mt-0.5" />
                       <span className="text-xs font-medium uppercase tracking-wider">Adress</span>
                     </div>
-                    {selectedPerson.address && (
-                      <p className="text-sm ml-5">{selectedPerson.address}</p>
-                    )}
-                    {(selectedPerson.postal_code || selectedPerson.city) && (
-                      <p className="text-sm ml-5">
-                        {selectedPerson.postal_code} {selectedPerson.city}
-                      </p>
+                    {selectedPerson.fb_address1 && <p className="text-sm ml-5">{selectedPerson.fb_address1}</p>}
+                    {selectedPerson.fb_address2 && <p className="text-sm ml-5">{selectedPerson.fb_address2}</p>}
+                    {(selectedPerson.fb_postnr || selectedPerson.fb_postort) && (
+                      <p className="text-sm ml-5">{selectedPerson.fb_postnr} {selectedPerson.fb_postort}</p>
                     )}
                   </div>
                 )}
               </div>
 
+              {/* Person's relations list */}
+              {personPnr && filteredPersonRelations.length > 0 && (
+                <div className="pt-2 border-t">
+                  <h4 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Relationer</h4>
+                  <div className="space-y-1">
+                    {filteredPersonRelations.map(r => {
+                      const otherPnr = r.person_a === personPnr ? r.person_b : r.person_a;
+                      const otherPerson = allPersons.find(p => p.pnr === otherPnr);
+                      return (
+                        <div key={r.id} className="text-xs flex justify-between items-center py-1 border-b border-border/50">
+                          <span className="font-medium">
+                            {otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : otherPnr}
+                          </span>
+                          <Badge variant="outline" className="text-[10px]">{r.relation_label || r.rel_typ}</Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="pt-2 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2"
-                  onClick={() => navigate(`/relations?person=${selectedPerson.id}`)}
-                >
-                  <GitFork className="h-4 w-4" />
-                  Visa relationer för denna person
+                <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => navigate(`/relations?person=${selectedPerson.pnr}`)}>
+                  <GitFork className="h-4 w-4" /> Visa relationer för denna person
                 </Button>
               </div>
             </CardContent>

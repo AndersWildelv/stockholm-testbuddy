@@ -81,15 +81,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "bookings_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "persons"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       import_batches: {
         Row: {
@@ -300,7 +292,213 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      kp_person_relationships: {
+        Row: {
+          created_at: string | null
+          end_date: string | null
+          id: number | null
+          person_a: string | null
+          person_b: string | null
+          rel_typ: string | null
+          relation_label: string | null
+          start_date: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: number | null
+          person_a?: string | null
+          person_b?: string | null
+          rel_typ?: string | null
+          relation_label?: string | null
+          start_date?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: number | null
+          person_a?: string | null
+          person_b?: string | null
+          rel_typ?: string | null
+          relation_label?: string | null
+          start_date?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      kp_persons: {
+        Row: {
+          booked_to_region_stockholm: boolean | null
+          county: string | null
+          created_at: string | null
+          fb_address1: string | null
+          fb_address2: string | null
+          fb_postnr: string | null
+          fb_postort: string | null
+          first_name: string | null
+          gender: string | null
+          hsaid: string | null
+          last_name: string | null
+          middle_name: string | null
+          municipality: string | null
+          pnr: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          booked_to_region_stockholm?: boolean | null
+          county?: string | null
+          created_at?: string | null
+          fb_address1?: string | null
+          fb_address2?: string | null
+          fb_postnr?: string | null
+          fb_postort?: string | null
+          first_name?: string | null
+          gender?: string | null
+          hsaid?: string | null
+          last_name?: string | null
+          middle_name?: string | null
+          municipality?: string | null
+          pnr?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          booked_to_region_stockholm?: boolean | null
+          county?: string | null
+          created_at?: string | null
+          fb_address1?: string | null
+          fb_address2?: string | null
+          fb_postnr?: string | null
+          fb_postort?: string | null
+          first_name?: string | null
+          gender?: string | null
+          hsaid?: string | null
+          last_name?: string | null
+          middle_name?: string | null
+          municipality?: string | null
+          pnr?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      kp_v_married_couples: {
+        Row: {
+          person_1: string | null
+          person_1_booked: boolean | null
+          person_1_first_name: string | null
+          person_1_hsaid: string | null
+          person_1_last_name: string | null
+          person_2: string | null
+          person_2_booked: boolean | null
+          person_2_first_name: string | null
+          person_2_hsaid: string | null
+          person_2_last_name: string | null
+        }
+        Relationships: []
+      }
+      kp_v_person_directory: {
+        Row: {
+          booked_to_region_stockholm: boolean | null
+          county: string | null
+          fb_address1: string | null
+          fb_address2: string | null
+          fb_postnr: string | null
+          fb_postort: string | null
+          first_name: string | null
+          gender: string | null
+          hsaid: string | null
+          last_name: string | null
+          middle_name: string | null
+          municipality: string | null
+          pnr: string | null
+        }
+        Insert: {
+          booked_to_region_stockholm?: boolean | null
+          county?: string | null
+          fb_address1?: string | null
+          fb_address2?: string | null
+          fb_postnr?: string | null
+          fb_postort?: string | null
+          first_name?: string | null
+          gender?: string | null
+          hsaid?: string | null
+          last_name?: string | null
+          middle_name?: string | null
+          municipality?: string | null
+          pnr?: string | null
+        }
+        Update: {
+          booked_to_region_stockholm?: boolean | null
+          county?: string | null
+          fb_address1?: string | null
+          fb_address2?: string | null
+          fb_postnr?: string | null
+          fb_postort?: string | null
+          first_name?: string | null
+          gender?: string | null
+          hsaid?: string | null
+          last_name?: string | null
+          middle_name?: string | null
+          municipality?: string | null
+          pnr?: string | null
+        }
+        Relationships: []
+      }
+      kp_v_region_stockholm_booked: {
+        Row: {
+          booked_to_region_stockholm: boolean | null
+          county: string | null
+          created_at: string | null
+          fb_address1: string | null
+          fb_address2: string | null
+          fb_postnr: string | null
+          fb_postort: string | null
+          first_name: string | null
+          gender: string | null
+          hsaid: string | null
+          last_name: string | null
+          middle_name: string | null
+          municipality: string | null
+          pnr: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          booked_to_region_stockholm?: boolean | null
+          county?: string | null
+          created_at?: string | null
+          fb_address1?: string | null
+          fb_address2?: string | null
+          fb_postnr?: string | null
+          fb_postort?: string | null
+          first_name?: string | null
+          gender?: string | null
+          hsaid?: string | null
+          last_name?: string | null
+          middle_name?: string | null
+          municipality?: string | null
+          pnr?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          booked_to_region_stockholm?: boolean | null
+          county?: string | null
+          created_at?: string | null
+          fb_address1?: string | null
+          fb_address2?: string | null
+          fb_postnr?: string | null
+          fb_postort?: string | null
+          first_name?: string | null
+          gender?: string | null
+          hsaid?: string | null
+          last_name?: string | null
+          middle_name?: string | null
+          municipality?: string | null
+          pnr?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
