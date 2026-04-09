@@ -128,7 +128,7 @@ export default function RelationsPage() {
     setPersonRelations(filtered);
 
     // Collect all rel_types for filter
-    const relTypes = [...new Set(uniqueRelations.map(r => r.rel_typ))].filter(Boolean).sort();
+    const relTypes = ([...new Set(uniqueRelations.map((r: RelationData) => r.rel_typ))] as string[]).filter(Boolean).sort();
     setAvailableRelTypes(relTypes);
 
     // Fetch persons
@@ -139,12 +139,12 @@ export default function RelationsPage() {
 
     if (!persons) { setLoading(false); return; }
 
-    setAllPersons(persons as PersonData[]);
-    const focusPerson = (persons as PersonData[]).find(p => p.pnr === focusPnr);
+    setAllPersons(persons as unknown as PersonData[]);
+    const focusPerson = (persons as unknown as PersonData[]).find(p => p.pnr === focusPnr);
     if (focusPerson) setSelectedPerson(focusPerson);
 
     // Build nodes
-    const otherPersons = (persons as PersonData[]).filter(p => p.pnr !== focusPnr);
+    const otherPersons = (persons as unknown as PersonData[]).filter(p => p.pnr !== focusPnr);
     const centerX = 450, centerY = 350, radius = 280;
 
     const newNodes: Node[] = [
@@ -217,7 +217,7 @@ export default function RelationsPage() {
     if (filtered.length === 0) { setLoading(false); return; }
 
     setAllRelations(filtered);
-    const relTypes = [...new Set(filtered.map((r: RelationData) => r.rel_typ))].filter(Boolean).sort();
+    const relTypes = ([...new Set(filtered.map((r: RelationData) => r.rel_typ))] as string[]).filter(Boolean).sort();
     setAvailableRelTypes(relTypes);
 
     const pnrs = new Set<string>();
@@ -229,10 +229,10 @@ export default function RelationsPage() {
       .in("pnr", Array.from(pnrs));
 
     if (!persons) { setLoading(false); return; }
-    setAllPersons(persons as PersonData[]);
+    setAllPersons(persons as unknown as PersonData[]);
 
-    const cols = Math.ceil(Math.sqrt((persons as any[]).length));
-    const newNodes: Node[] = (persons as PersonData[]).map((p, i) => ({
+    const cols = Math.ceil(Math.sqrt((persons as unknown as any[]).length));
+    const newNodes: Node[] = (persons as unknown as PersonData[]).map((p, i) => ({
       id: p.pnr,
       position: { x: (i % cols) * 220 + 50, y: Math.floor(i / cols) * 120 + 50 },
       data: { label: `${p.first_name ?? ""} ${p.last_name ?? ""}` },
