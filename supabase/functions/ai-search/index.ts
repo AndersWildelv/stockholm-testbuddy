@@ -25,67 +25,44 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Step 1: Use AI to parse the Swedish prompt into structured filters
     const systemPrompt = `Du är en expert på att tolka svenska fritextfrågor om testpersoner och översätta dem till strukturerade sökfilter.
 
-Databasen har dessa sökbara fält:
+Databasen har dessa sökbara fält (vy: kp_v_person_directory):
+- pnr (text): Personnummer (12 siffror, t.ex. 199301052388)
 - first_name (text): Förnamn
-- last_name (text): Efternamn  
 - middle_name (text): Mellannamn
-- personnummer (text): Personnummer (format: YYYYMMDDNNNN)
+- last_name (text): Efternamn
 - gender (text): Kön - "M" för man, "K" för kvinna
-- birth_date (date): Födelsedatum (YYYY-MM-DD)
-- city (text): Postort (t.ex. STOCKHOLM, NACKA, SALTSJÖ-BOO, EKERÖ, SOLNA, STENHAMRA, SALTSJÖBADEN, ADELSÖ)
-- postal_code (text): Postnummer
-- county_code (text): Länskod (t.ex. "1" för Stockholm)
-- municipality_code (text): Kommunkod (t.ex. "80" för Stockholm stad, "82" för Nacka, "25" för Ekerö, "84" för Solna)
-- civil_status (text): Civilstånd - "OG" ogift, "G" gift, "S" skild, "Ä" änka/änkling
-- birth_country (text): Födelseland (t.ex. ARGENTINA, STORBRITANNIEN, ITALIEN, USA, KANADA, SCHWEIZ, SPANIEN, BELGIEN, PORTUGAL, GREKLAND, FRANKRIKE, TYSKLAND, POLEN, IRAN, IRAK, IRLAND, ALBANIEN)
-- protected_identity (boolean): Skyddad identitet / sekretessmarkering
-- person_type (text): "Personal" (har HSA-id) eller "Invånare" (saknar HSA-id)
-- is_static (boolean): Statisk (skrivskyddad) eller dynamisk person
-- pnr_type (text): Personnummertyp - "P" vanligt personnummer
-- is_fictitious (boolean): Fiktivt nummer
-- address (text): Utdelningsadress
-- additional_attributes->>'AvrOrsak' (text): Avregistreringsorsak ("AV" = avregistrerad, "UV" = utvandrad)
-- additional_attributes->>'FodLand' (text): Födelseland (samma som birth_country)
-- additional_attributes->>'UtlLand' (text): Utlandsadress land
-- additional_attributes->>'FodOrt' (text): Födelseort
+- municipality (text): Kommun
+- county (text): Län
+- fb_postnr (text): Postnummer
+- fb_postort (text): Postort
+- fb_address1 (text): Adress rad 1
+- fb_address2 (text): Adress rad 2
+- booked_to_region_stockholm (boolean): Bokad till Region Stockholm
+- hsaid (text): HSA-ID (t.ex. AMRS, AQWW)
 
-Åldersberäkning: Använd birth_date relativt till CURRENT_DATE.
-- Barn: 0-17 år
-- Ungdom: 13-17 år  
-- Vuxen: 18-64 år
-- Äldre: 65+ år
-
-Svara ALLTID med ett JSON-objekt med exakt detta format:
+Svara med JSON:
 {
   "filters": { ... },
-  "reasoning": "Kort motivering på svenska för varför dessa filter valdes",
-  "sql_conditions": ["WHERE-villkor som SQL-strängar"]
+  "reasoning": "Kort motivering på svenska"
 }
 
-Filters-objektet kan innehålla:
-- "first_name": exakt eller ILIKE-mönster
-- "last_name": exakt eller ILIKE-mönster
-- "personnummer": exakt match
+Filters kan innehålla:
+- "pnr": exakt match
+- "first_name": ILIKE-mönster
+- "last_name": ILIKE-mönster
+- "name_search": delvis namnmatchning
 - "gender": "M" eller "K"
-- "min_age": nummer
-- "max_age": nummer
-- "birth_year": nummer
-- "city": text (ILIKE)
-- "municipality_code": text
-- "county_code": text
-- "civil_status": text
-- "birth_country": text (ILIKE)
-- "protected_identity": boolean
-- "person_type": "Personal" eller "Invånare"
-- "is_fictitious": boolean
-- "has_foreign_address": boolean
-- "deregistered": boolean
-- "name_search": text (för delvis namnmatchning)
+- "municipality": ILIKE
+- "county": ILIKE
+- "fb_postnr": exakt
+- "fb_postort": ILIKE
+- "booked_to_region_stockholm": boolean
+- "hsaid": ILIKE eller exakt
+- "has_hsaid": boolean (om personen har HSA-ID)
 
-Inkludera BARA filter som är relevanta för frågan. Utelämna fält som inte nämns.`;
+Inkludera BARA relevanta filter.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -104,31 +81,25 @@ Inkludera BARA filter som är relevanta för frågan. Utelämna fält som inte n
             type: "function",
             function: {
               name: "search_persons",
-              description: "Search for test persons based on parsed filters from user query",
+              description: "Search for test persons based on parsed filters",
               parameters: {
                 type: "object",
                 properties: {
                   filters: {
                     type: "object",
                     properties: {
+                      pnr: { type: "string" },
                       first_name: { type: "string" },
                       last_name: { type: "string" },
-                      personnummer: { type: "string" },
-                      gender: { type: "string", enum: ["M", "K"] },
-                      min_age: { type: "number" },
-                      max_age: { type: "number" },
-                      birth_year: { type: "number" },
-                      city: { type: "string" },
-                      municipality_code: { type: "string" },
-                      county_code: { type: "string" },
-                      civil_status: { type: "string" },
-                      birth_country: { type: "string" },
-                      protected_identity: { type: "boolean" },
-                      person_type: { type: "string", enum: ["Personal", "Invånare"] },
-                      is_fictitious: { type: "boolean" },
-                      has_foreign_address: { type: "boolean" },
-                      deregistered: { type: "boolean" },
                       name_search: { type: "string" },
+                      gender: { type: "string", enum: ["M", "K"] },
+                      municipality: { type: "string" },
+                      county: { type: "string" },
+                      fb_postnr: { type: "string" },
+                      fb_postort: { type: "string" },
+                      booked_to_region_stockholm: { type: "boolean" },
+                      hsaid: { type: "string" },
+                      has_hsaid: { type: "boolean" },
                     },
                     additionalProperties: false,
                   },
@@ -146,16 +117,9 @@ Inkludera BARA filter som är relevanta för frågan. Utelämna fält som inte n
 
     if (!aiResponse.ok) {
       const status = aiResponse.status;
-      const text = await aiResponse.text();
-      console.error("AI gateway error:", status, text);
       if (status === 429) {
-        return new Response(JSON.stringify({ error: "Söktjänsten är tillfälligt överbelastad. Försök igen om en stund." }), {
+        return new Response(JSON.stringify({ error: "Söktjänsten är tillfälligt överbelastad." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "AI-krediter slut. Kontakta administratör." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       throw new Error(`AI error: ${status}`);
@@ -168,78 +132,35 @@ Inkludera BARA filter som är relevanta för frågan. Utelämna fält som inte n
     const parsed = JSON.parse(toolCall.function.arguments);
     const { filters, reasoning } = parsed;
 
-    // Step 2: Build deterministic SQL query from filters
     const supabase = createClient(supabaseUrl, supabaseKey);
     let dbQuery = supabase
-      .from("persons")
-      .select("id, person_id, personnummer, first_name, last_name, middle_name, birth_date, gender, civil_status, birth_country, protected_identity, person_type, is_static, city, postal_code, address, county_code, municipality_code, pnr_type, is_fictitious, additional_attributes")
+      .from("kp_v_person_directory")
+      .select("*")
       .limit(50);
 
-    if (filters.personnummer) {
-      dbQuery = dbQuery.eq("personnummer", filters.personnummer);
-    }
-    if (filters.first_name) {
-      dbQuery = dbQuery.ilike("first_name", `%${filters.first_name}%`);
-    }
-    if (filters.last_name) {
-      dbQuery = dbQuery.ilike("last_name", `%${filters.last_name}%`);
-    }
+    if (filters.pnr) dbQuery = dbQuery.eq("pnr", filters.pnr);
+    if (filters.first_name) dbQuery = dbQuery.ilike("first_name", `%${filters.first_name}%`);
+    if (filters.last_name) dbQuery = dbQuery.ilike("last_name", `%${filters.last_name}%`);
     if (filters.name_search) {
       dbQuery = dbQuery.or(`first_name.ilike.%${filters.name_search}%,last_name.ilike.%${filters.name_search}%,middle_name.ilike.%${filters.name_search}%`);
     }
-    if (filters.gender) {
-      dbQuery = dbQuery.eq("gender", filters.gender);
+    if (filters.gender) dbQuery = dbQuery.eq("gender", filters.gender);
+    if (filters.municipality) dbQuery = dbQuery.ilike("municipality", `%${filters.municipality}%`);
+    if (filters.county) dbQuery = dbQuery.ilike("county", `%${filters.county}%`);
+    if (filters.fb_postnr) dbQuery = dbQuery.eq("fb_postnr", filters.fb_postnr);
+    if (filters.fb_postort) dbQuery = dbQuery.ilike("fb_postort", `%${filters.fb_postort}%`);
+    if (filters.booked_to_region_stockholm !== undefined) {
+      dbQuery = dbQuery.eq("booked_to_region_stockholm", filters.booked_to_region_stockholm);
     }
-    if (filters.city) {
-      dbQuery = dbQuery.ilike("city", `%${filters.city}%`);
-    }
-    if (filters.municipality_code) {
-      dbQuery = dbQuery.eq("municipality_code", filters.municipality_code);
-    }
-    if (filters.county_code) {
-      dbQuery = dbQuery.eq("county_code", filters.county_code);
-    }
-    if (filters.civil_status) {
-      dbQuery = dbQuery.ilike("civil_status", `${filters.civil_status}%`);
-    }
-    if (filters.birth_country) {
-      dbQuery = dbQuery.ilike("birth_country", `%${filters.birth_country}%`);
-    }
-    if (filters.protected_identity !== undefined) {
-      dbQuery = dbQuery.eq("protected_identity", filters.protected_identity);
-    }
-    if (filters.person_type) {
-      dbQuery = dbQuery.eq("person_type", filters.person_type);
-    }
-    if (filters.is_fictitious !== undefined) {
-      dbQuery = dbQuery.eq("is_fictitious", filters.is_fictitious);
-    }
-    if (filters.birth_year) {
-      dbQuery = dbQuery
-        .gte("birth_date", `${filters.birth_year}-01-01`)
-        .lte("birth_date", `${filters.birth_year}-12-31`);
-    }
-    if (filters.min_age !== undefined) {
-      const maxBirthDate = new Date();
-      maxBirthDate.setFullYear(maxBirthDate.getFullYear() - filters.min_age);
-      dbQuery = dbQuery.lte("birth_date", maxBirthDate.toISOString().split("T")[0]);
-    }
-    if (filters.max_age !== undefined) {
-      const minBirthDate = new Date();
-      minBirthDate.setFullYear(minBirthDate.getFullYear() - filters.max_age - 1);
-      dbQuery = dbQuery.gte("birth_date", minBirthDate.toISOString().split("T")[0]);
-    }
+    if (filters.hsaid) dbQuery = dbQuery.ilike("hsaid", `%${filters.hsaid}%`);
+    if (filters.has_hsaid === true) dbQuery = dbQuery.not("hsaid", "is", null);
+    if (filters.has_hsaid === false) dbQuery = dbQuery.is("hsaid", null);
 
     const { data: persons, error: dbError } = await dbQuery;
     if (dbError) throw new Error(`DB error: ${dbError.message}`);
 
     return new Response(
-      JSON.stringify({
-        persons: persons || [],
-        filters,
-        reasoning,
-        total: persons?.length || 0,
-      }),
+      JSON.stringify({ persons: persons || [], filters, reasoning, total: persons?.length || 0 }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
