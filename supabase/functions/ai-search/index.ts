@@ -33,14 +33,24 @@ Databasen har dessa sökbara fält (vy: kp_v_person_directory):
 - middle_name (text): Mellannamn
 - last_name (text): Efternamn
 - gender (text): Kön - "M" för man, "K" för kvinna
-- municipality (text): Kommun
-- county (text): Län
+- municipality (text): Kommun (t.ex. "Stockholm", "Nacka", "Solna")
+- county (text): Län (t.ex. "Stockholms län")
 - fb_postnr (text): Postnummer
-- fb_postort (text): Postort
+- fb_postort (text): Postort (t.ex. "STOCKHOLM", "SOLNA")
 - fb_address1 (text): Adress rad 1
 - fb_address2 (text): Adress rad 2
 - booked_to_region_stockholm (boolean): Bokad till Region Stockholm
+- belongs_to_region_stockholm (boolean): Tillhör Region Stockholm
 - hsaid (text): HSA-ID (t.ex. AMRS, AQWW)
+
+Relationsdata finns i separat tabell (kp_person_relationships) med dessa relationstyper (rel_typ):
+- "M" = Make/Maka (gift med)
+- "B" = Barn
+- "MO" = Mor
+- "FA" = Far
+- "VF" = Vårdnadshavare Far
+- "V" = Vårdnadshavare
+- "P" = Partner
 
 Svara med JSON:
 {
@@ -54,15 +64,24 @@ Filters kan innehålla:
 - "last_name": ILIKE-mönster
 - "name_search": delvis namnmatchning
 - "gender": "M" eller "K"
-- "municipality": ILIKE
-- "county": ILIKE
+- "municipality": ILIKE (t.ex. "Stockholm")
+- "county": ILIKE (t.ex. "Stockholms län")
 - "fb_postnr": exakt
 - "fb_postort": ILIKE
 - "booked_to_region_stockholm": boolean
+- "belongs_to_region_stockholm": boolean
 - "hsaid": ILIKE eller exakt
 - "has_hsaid": boolean (om personen har HSA-ID)
+- "has_relation": array av relationstyper som personen MÅSTE ha, t.ex. ["M"] för gift, ["B"] för har barn, ["M","B"] för gift med barn
+- "not_has_relation": array av relationstyper personen INTE ska ha
 
-Inkludera BARA relevanta filter.`;
+VIKTIGT:
+- "gift" eller "gifta" → has_relation: ["M"]
+- "med barn" eller "har barn" → has_relation: ["B"]  
+- "gift med barn" → has_relation: ["M", "B"]
+- "ogift" → not_has_relation: ["M"]
+- "bosatt i stockholm" → municipality: "Stockholm" (kommun) ELLER fb_postort: "STOCKHOLM" — använd municipality som primärt filter
+- Inkludera BARA relevanta filter.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -98,8 +117,11 @@ Inkludera BARA relevanta filter.`;
                       fb_postnr: { type: "string" },
                       fb_postort: { type: "string" },
                       booked_to_region_stockholm: { type: "boolean" },
+                      belongs_to_region_stockholm: { type: "boolean" },
                       hsaid: { type: "string" },
                       has_hsaid: { type: "boolean" },
+                      has_relation: { type: "array", items: { type: "string", enum: ["M", "B", "MO", "FA", "VF", "V", "P"] } },
+                      not_has_relation: { type: "array", items: { type: "string", enum: ["M", "B", "MO", "FA", "VF", "V", "P"] } },
                     },
                     additionalProperties: false,
                   },
@@ -132,11 +154,76 @@ Inkludera BARA relevanta filter.`;
     const parsed = JSON.parse(toolCall.function.arguments);
     const { filters, reasoning } = parsed;
 
+    console.log("AI filters:", JSON.stringify(filters));
+
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // If relation filters are used, first find PNRs that match relation criteria
+    let relationFilteredPnrs: string[] | null = null;
+
+    if (filters.has_relation && Array.isArray(filters.has_relation) && filters.has_relation.length > 0) {
+      // For each required relation type, find persons (person_a) that have that relation
+      const pnrSets: Set<string>[] = [];
+      for (const relType of filters.has_relation) {
+        const { data: rels, error: relError } = await supabase
+          .from("kp_person_relationships")
+          .select("person_a")
+          .eq("rel_typ", relType);
+        if (relError) {
+          console.error("Relation query error:", relError);
+          continue;
+        }
+        const pnrs = new Set((rels || []).map((r: { person_a: string }) => r.person_a));
+        pnrSets.push(pnrs);
+      }
+      // Intersect all sets
+      if (pnrSets.length > 0) {
+        relationFilteredPnrs = [...pnrSets[0]].filter(pnr => 
+          pnrSets.every(set => set.has(pnr))
+        );
+      }
+    }
+
+    if (filters.not_has_relation && Array.isArray(filters.not_has_relation) && filters.not_has_relation.length > 0) {
+      const excludePnrs = new Set<string>();
+      for (const relType of filters.not_has_relation) {
+        const { data: rels } = await supabase
+          .from("kp_person_relationships")
+          .select("person_a")
+          .eq("rel_typ", relType);
+        (rels || []).forEach((r: { person_a: string }) => excludePnrs.add(r.person_a));
+      }
+      if (relationFilteredPnrs) {
+        relationFilteredPnrs = relationFilteredPnrs.filter(pnr => !excludePnrs.has(pnr));
+      } else {
+        // Need to get all PNRs and exclude
+        const { data: allPersons } = await supabase
+          .from("kp_v_person_directory")
+          .select("pnr");
+        relationFilteredPnrs = (allPersons || [])
+          .map((p: { pnr: string }) => p.pnr)
+          .filter((pnr: string) => !excludePnrs.has(pnr));
+      }
+    }
+
+    // If relation filter returned no matches, return empty
+    if (relationFilteredPnrs !== null && relationFilteredPnrs.length === 0) {
+      return new Response(
+        JSON.stringify({ persons: [], filters, reasoning, total: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     let dbQuery = supabase
       .from("kp_v_person_directory")
       .select("*")
       .limit(50);
+
+    // Apply relation PNR filter
+    if (relationFilteredPnrs !== null) {
+      // Supabase .in() has limits, take first 500 to be safe
+      dbQuery = dbQuery.in("pnr", relationFilteredPnrs.slice(0, 500));
+    }
 
     if (filters.pnr) dbQuery = dbQuery.eq("pnr", filters.pnr);
     if (filters.first_name) dbQuery = dbQuery.ilike("first_name", `%${filters.first_name}%`);
@@ -151,6 +238,9 @@ Inkludera BARA relevanta filter.`;
     if (filters.fb_postort) dbQuery = dbQuery.ilike("fb_postort", `%${filters.fb_postort}%`);
     if (filters.booked_to_region_stockholm !== undefined) {
       dbQuery = dbQuery.eq("booked_to_region_stockholm", filters.booked_to_region_stockholm);
+    }
+    if (filters.belongs_to_region_stockholm !== undefined) {
+      dbQuery = dbQuery.eq("belongs_to_region_stockholm", filters.belongs_to_region_stockholm);
     }
     if (filters.hsaid) dbQuery = dbQuery.ilike("hsaid", `%${filters.hsaid}%`);
     if (filters.has_hsaid === true) dbQuery = dbQuery.not("hsaid", "is", null);
