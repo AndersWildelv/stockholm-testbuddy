@@ -246,8 +246,8 @@ VIKTIGT:
       dbQuery = dbQuery.or(`first_name.ilike.%${filters.name_search}%,last_name.ilike.%${filters.name_search}%,middle_name.ilike.%${filters.name_search}%`);
     }
     if (filters.gender) dbQuery = dbQuery.eq("gender", filters.gender);
-    if (filters.municipality) dbQuery = dbQuery.ilike("municipality", `%${filters.municipality}%`);
-    if (filters.county) dbQuery = dbQuery.ilike("county", `%${filters.county}%`);
+    if (filters.municipality) dbQuery = dbQuery.eq("municipality", filters.municipality);
+    if (filters.county) dbQuery = dbQuery.eq("county", filters.county);
     if (filters.fb_postnr) dbQuery = dbQuery.eq("fb_postnr", filters.fb_postnr);
     if (filters.fb_postort) dbQuery = dbQuery.ilike("fb_postort", `%${filters.fb_postort}%`);
     if (filters.booked_to_region_stockholm !== undefined) {
