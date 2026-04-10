@@ -41,6 +41,7 @@ Databasen har dessa sökbara fält (vy: kp_v_person_directory):
 - fb_address2 (text): Adress rad 2
 - booked_to_region_stockholm (boolean): Bokad till Region Stockholm
 - belongs_to_region_stockholm (boolean): Tillhör Region Stockholm
+- protected_identity (boolean): Skyddad identitet (sekretessmarkerad person)
 - hsaid (text): HSA-ID (t.ex. AMRS, AQWW)
 
 Relationsdata finns i separat tabell (kp_person_relationships) med dessa relationstyper (rel_typ):
@@ -72,6 +73,7 @@ Filters kan innehålla:
 - "belongs_to_region_stockholm": boolean
 - "hsaid": ILIKE eller exakt
 - "has_hsaid": boolean (om personen har HSA-ID)
+- "protected_identity": boolean (skyddad identitet / sekretessmarkerad)
 - "has_relation": array av relationstyper som personen MÅSTE ha, t.ex. ["M"] för gift, ["B"] för har barn, ["M","B"] för gift med barn
 - "not_has_relation": array av relationstyper personen INTE ska ha
 
@@ -81,6 +83,7 @@ VIKTIGT:
 - "gift med barn" → has_relation: ["M", "B"]
 - "ogift" → not_has_relation: ["M"]
 - "bosatt i stockholm" → municipality: "Stockholm" (kommun) ELLER fb_postort: "STOCKHOLM" — använd municipality som primärt filter
+- "skyddad identitet" eller "sekretessmarkerad" → protected_identity: true
 - Inkludera BARA relevanta filter.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -120,6 +123,7 @@ VIKTIGT:
                       belongs_to_region_stockholm: { type: "boolean" },
                       hsaid: { type: "string" },
                       has_hsaid: { type: "boolean" },
+                      protected_identity: { type: "boolean" },
                       has_relation: { type: "array", items: { type: "string", enum: ["M", "B", "MO", "FA", "VF", "V", "P"] } },
                       not_has_relation: { type: "array", items: { type: "string", enum: ["M", "B", "MO", "FA", "VF", "V", "P"] } },
                     },
@@ -245,6 +249,9 @@ VIKTIGT:
     if (filters.hsaid) dbQuery = dbQuery.ilike("hsaid", `%${filters.hsaid}%`);
     if (filters.has_hsaid === true) dbQuery = dbQuery.not("hsaid", "is", null);
     if (filters.has_hsaid === false) dbQuery = dbQuery.is("hsaid", null);
+    if (filters.protected_identity !== undefined) {
+      dbQuery = dbQuery.eq("protected_identity", filters.protected_identity);
+    }
 
     const { data: persons, error: dbError } = await dbQuery;
     if (dbError) throw new Error(`DB error: ${dbError.message}`);
