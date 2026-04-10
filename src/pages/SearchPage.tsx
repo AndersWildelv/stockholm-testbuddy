@@ -74,11 +74,11 @@ export default function SearchPage() {
   };
 
   const exampleQueries = [
-    "Kvinna bosatt i Stockholm",
-    "Person med HSA-ID",
-    "Man i Nacka kommun",
-    "Person bokad till Region Stockholm",
+    "Gift kvinna med barn i Stockholm",
+    "Man som jobbar inom regionen",
     "Person med skyddad identitet",
+    "Ogift person bosatt i Nacka",
+    "Kvinna med barn i Solna",
   ];
 
   return (
