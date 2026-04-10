@@ -33,16 +33,22 @@ Databasen har dessa sökbara fält (vy: kp_v_person_directory):
 - middle_name (text): Mellannamn
 - last_name (text): Efternamn
 - gender (text): Kön - "M" för man, "K" för kvinna
-- municipality (text): Kommun (t.ex. "Stockholm", "Nacka", "Solna")
-- county (text): Län (t.ex. "Stockholms län")
+- municipality (text): Kommunskod (OBS: lagras som kod, inte namn). Mappning:
+  "25" = Ekerö
+  "80" = Stockholm
+  "82" = Nacka
+  "83" = Sundbyberg
+  "84" = Solna
+  "86" = Lidingö
+- county (text): Länskod. "1" = Stockholms län, "25" = annan
 - fb_postnr (text): Postnummer
-- fb_postort (text): Postort (t.ex. "STOCKHOLM", "SOLNA")
-- fb_address1 (text): Adress rad 1
+- fb_postort (text): Postort i versaler (t.ex. "STOCKHOLM", "SOLNA", "NACKA", "EKERÖ", "SALTSJÖ-BOO", "SALTSJÖBADEN", "SUNDBYBERG", "LIDINGÖ", "STENHAMRA", "ADELSÖ", "SALTSJÖ-DUVNÄS")
+- fb_address1 (text): Gatuadress
 - fb_address2 (text): Adress rad 2
 - booked_to_region_stockholm (boolean): Bokad till Region Stockholm
 - belongs_to_region_stockholm (boolean): Tillhör Region Stockholm
 - protected_identity (boolean): Skyddad identitet (sekretessmarkerad person)
-- hsaid (text): HSA-ID (t.ex. AMRS, AQWW)
+- hsaid (text): HSA-ID — innebär att personen jobbar inom Region Stockholm
 
 Relationsdata finns i separat tabell (kp_person_relationships) med dessa relationstyper (rel_typ):
 - "M" = Make/Maka (gift med)
@@ -65,14 +71,14 @@ Filters kan innehålla:
 - "last_name": ILIKE-mönster
 - "name_search": delvis namnmatchning
 - "gender": "M" eller "K"
-- "municipality": ILIKE (t.ex. "Stockholm")
-- "county": ILIKE (t.ex. "Stockholms län")
+- "municipality": exakt kommunkod (t.ex. "80" för Stockholm, "82" för Nacka)
+- "county": exakt länskod (t.ex. "1" för Stockholms län)
 - "fb_postnr": exakt
-- "fb_postort": ILIKE
+- "fb_postort": ILIKE (versaler, t.ex. "STOCKHOLM")
 - "booked_to_region_stockholm": boolean
 - "belongs_to_region_stockholm": boolean
 - "hsaid": ILIKE eller exakt
-- "has_hsaid": boolean (om personen har HSA-ID)
+- "has_hsaid": boolean (om personen har HSA-ID, dvs jobbar inom regionen)
 - "protected_identity": boolean (skyddad identitet / sekretessmarkerad)
 - "has_relation": array av relationstyper som personen MÅSTE ha, t.ex. ["M"] för gift, ["B"] för har barn, ["M","B"] för gift med barn
 - "not_has_relation": array av relationstyper personen INTE ska ha
@@ -82,8 +88,12 @@ VIKTIGT:
 - "med barn" eller "har barn" → has_relation: ["B"]  
 - "gift med barn" → has_relation: ["M", "B"]
 - "ogift" → not_has_relation: ["M"]
-- "bosatt i stockholm" → municipality: "Stockholm" (kommun) ELLER fb_postort: "STOCKHOLM" — använd municipality som primärt filter
+- "bosatt i stockholm" → fb_postort: "STOCKHOLM" ELLER municipality: "80"
+- "bosatt i nacka" → municipality: "82" (använd kommunskoden)
+- "bosatt i solna" → municipality: "84"
+- "jobbar inom regionen" eller "anställd" → has_hsaid: true
 - "skyddad identitet" eller "sekretessmarkerad" → protected_identity: true
+- "med adress" eller "har adress" → fb_postort ska inte vara null (använd fb_postort med ILIKE om ort anges)
 - Inkludera BARA relevanta filter.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -236,8 +246,8 @@ VIKTIGT:
       dbQuery = dbQuery.or(`first_name.ilike.%${filters.name_search}%,last_name.ilike.%${filters.name_search}%,middle_name.ilike.%${filters.name_search}%`);
     }
     if (filters.gender) dbQuery = dbQuery.eq("gender", filters.gender);
-    if (filters.municipality) dbQuery = dbQuery.ilike("municipality", `%${filters.municipality}%`);
-    if (filters.county) dbQuery = dbQuery.ilike("county", `%${filters.county}%`);
+    if (filters.municipality) dbQuery = dbQuery.eq("municipality", filters.municipality);
+    if (filters.county) dbQuery = dbQuery.eq("county", filters.county);
     if (filters.fb_postnr) dbQuery = dbQuery.eq("fb_postnr", filters.fb_postnr);
     if (filters.fb_postort) dbQuery = dbQuery.ilike("fb_postort", `%${filters.fb_postort}%`);
     if (filters.booked_to_region_stockholm !== undefined) {
