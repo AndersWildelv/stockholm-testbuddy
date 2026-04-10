@@ -96,38 +96,113 @@ export default function RelationsPage() {
 
     const filtered = ((relations as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
 
-    // Collect person pnrs
-    const pnrs = new Set<string>();
-    pnrs.add(focusPnr);
-    filtered.forEach((r: RelationData) => {
-      pnrs.add(r.person_a);
-      pnrs.add(r.person_b);
+    // Categorize each related person relative to the focus person
+    const parents: string[] = [];
+    const spouses: string[] = [];
+    const siblings: string[] = [];
+    const children: string[] = [];
+    const cousins: string[] = [];
+    const categorized = new Set<string>();
+
+    for (const r of filtered) {
+      const otherPnr = r.person_a === focusPnr ? r.person_b : r.person_a;
+      if (categorized.has(otherPnr)) continue;
+
+      const label = (r.relation_label || "").toLowerCase();
+      const typ = (r.rel_typ || "").toUpperCase();
+
+      if (typ === "M") {
+        spouses.push(otherPnr);
+      } else if (typ === "SY") {
+        siblings.push(otherPnr);
+      } else if (typ === "KU") {
+        cousins.push(otherPnr);
+      } else if (typ === "B" || typ === "FA") {
+        if (label.includes("far") || label.includes("mor") || label.includes("förälder")) {
+          parents.push(otherPnr);
+        } else if (label.includes("barn")) {
+          children.push(otherPnr);
+        } else {
+          // Fallback heuristic: for type B, if focus is person_a the other is likely child
+          if (r.person_a === focusPnr && typ === "B") {
+            children.push(otherPnr);
+          } else {
+            parents.push(otherPnr);
+          }
+        }
+      } else {
+        cousins.push(otherPnr);
+      }
+      categorized.add(otherPnr);
+    }
+
+    // Collect all unique pnrs
+    const allPnrs = new Set<string>([focusPnr, ...parents, ...spouses, ...siblings, ...children, ...cousins]);
+
+    // Fetch 2nd degree: children of children (grandchildren) and parents of parents (grandparents)
+    const secondaryPnrs = [...parents, ...children];
+    let secondDegRelations: RelationData[] = [];
+    if (secondaryPnrs.length > 0) {
+      const { data: secondDeg } = await supabase
+        .from("kp_person_relationships" as any)
+        .select("*")
+        .or(
+          secondaryPnrs.map(p => `person_a.eq.${p}`).join(",") + "," +
+          secondaryPnrs.map(p => `person_b.eq.${p}`).join(",")
+        );
+      secondDegRelations = ((secondDeg as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
+    }
+
+    // Grandparents: parents of parents
+    const grandparents: string[] = [];
+    for (const parentPnr of parents) {
+      for (const r of secondDegRelations) {
+        if (r.person_a !== parentPnr && r.person_b !== parentPnr) continue;
+        const otherPnr = r.person_a === parentPnr ? r.person_b : r.person_a;
+        if (allPnrs.has(otherPnr)) continue;
+        const label = (r.relation_label || "").toLowerCase();
+        const typ = (r.rel_typ || "").toUpperCase();
+        if (typ === "B" || typ === "FA") {
+          if (label.includes("far") || label.includes("mor") || label.includes("förälder")) {
+            grandparents.push(otherPnr);
+            allPnrs.add(otherPnr);
+          }
+        }
+      }
+    }
+
+    // Grandchildren: children of children
+    const grandchildren: string[] = [];
+    for (const childPnr of children) {
+      for (const r of secondDegRelations) {
+        if (r.person_a !== childPnr && r.person_b !== childPnr) continue;
+        const otherPnr = r.person_a === childPnr ? r.person_b : r.person_a;
+        if (allPnrs.has(otherPnr)) continue;
+        const label = (r.relation_label || "").toLowerCase();
+        const typ = (r.rel_typ || "").toUpperCase();
+        if (typ === "B" || typ === "FA") {
+          if (label.includes("barn")) {
+            grandchildren.push(otherPnr);
+            allPnrs.add(otherPnr);
+          }
+        }
+      }
+    }
+
+    // Deduplicate edges: keep one edge per unique pair
+    const allRels = [...filtered, ...secondDegRelations];
+    const edgeMap = new Map<string, RelationData>();
+    for (const r of allRels) {
+      const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
+      if (!edgeMap.has(key)) edgeMap.set(key, r);
+    }
+    const uniqueRelations = Array.from(edgeMap.values()).filter(r => {
+      return allPnrs.has(r.person_a) && allPnrs.has(r.person_b);
     });
-
-    // Fetch 2nd degree relations
-    const connectedPnrs = Array.from(pnrs);
-    const { data: secondDeg } = await supabase
-      .from("kp_person_relationships" as any)
-      .select("*")
-      .or(
-        connectedPnrs.map(p => `person_a.eq.${p}`).join(",") + "," +
-        connectedPnrs.map(p => `person_b.eq.${p}`).join(",")
-      );
-
-    const secondFiltered = ((secondDeg as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
-    secondFiltered.forEach((r: RelationData) => {
-      pnrs.add(r.person_a);
-      pnrs.add(r.person_b);
-    });
-
-    const uniqueRelations = Array.from(
-      new Map([...filtered, ...secondFiltered].map((r: RelationData) => [r.id, r])).values()
-    );
 
     setAllRelations(uniqueRelations);
     setPersonRelations(filtered);
 
-    // Collect all rel_types for filter
     const relTypes = ([...new Set(uniqueRelations.map((r: RelationData) => r.rel_typ))] as string[]).filter(Boolean).sort();
     setAvailableRelTypes(relTypes);
 
@@ -135,45 +210,68 @@ export default function RelationsPage() {
     const { data: persons } = await supabase
       .from("kp_persons" as any)
       .select("pnr, first_name, middle_name, last_name, gender, municipality, county, fb_postnr, fb_postort, fb_address1, fb_address2, booked_to_region_stockholm, hsaid")
-      .in("pnr", Array.from(pnrs));
+      .in("pnr", Array.from(allPnrs));
 
     if (!persons) { setLoading(false); return; }
-
     setAllPersons(persons as unknown as PersonData[]);
-    const focusPerson = (persons as unknown as PersonData[]).find(p => p.pnr === focusPnr);
+    const personMap = new Map((persons as unknown as PersonData[]).map(p => [p.pnr, p]));
+    const focusPerson = personMap.get(focusPnr);
     if (focusPerson) setSelectedPerson(focusPerson);
 
-    // Build nodes
-    const otherPersons = (persons as unknown as PersonData[]).filter(p => p.pnr !== focusPnr);
-    const centerX = 450, centerY = 350, radius = 280;
+    // ── Tree Layout ──
+    const nodeW = 160;
+    const nodeH = 50;
+    const hGap = 40;
+    const layerGap = 160;
 
-    const newNodes: Node[] = [
-      {
-        id: focusPnr,
-        position: { x: centerX - 70, y: centerY - 20 },
-        data: { label: focusPerson ? `${focusPerson.first_name ?? ""} ${focusPerson.last_name ?? ""}` : focusPnr },
-        style: {
-          background: "hsl(211, 68%, 40%)", color: "white",
-          border: "3px solid hsl(211, 68%, 25%)", borderRadius: "12px",
-          padding: "12px 20px", fontSize: "14px", fontWeight: "700",
-          minWidth: "140px", textAlign: "center" as const,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-        },
-      },
+    function getLabel(pnr: string) {
+      const p = personMap.get(pnr);
+      return p ? `${p.first_name ?? ""} ${p.middle_name ? p.middle_name + " " : ""}${p.last_name ?? ""}` : pnr;
+    }
+
+    // Layers from top to bottom:
+    // 0: grandparents, 1: parents, 2: focus+spouse+siblings+cousins, 3: children, 4: grandchildren
+    const layers: string[][] = [
+      grandparents,
+      parents,
+      [focusPnr, ...spouses, ...siblings, ...cousins],
+      children,
+      grandchildren,
     ];
 
-    otherPersons.forEach((p, i) => {
-      const angle = (2 * Math.PI * i) / otherPersons.length - Math.PI / 2;
-      newNodes.push({
-        id: p.pnr,
-        position: { x: centerX + radius * Math.cos(angle) - 70, y: centerY + radius * Math.sin(angle) - 20 },
-        data: { label: `${p.first_name ?? ""} ${p.last_name ?? ""}` },
-        style: {
-          background: "hsl(var(--card))", color: "hsl(var(--card-foreground))",
-          border: "2px solid hsl(var(--border))", borderRadius: "10px",
-          padding: "10px 16px", fontSize: "13px", fontWeight: "500",
-          minWidth: "120px", textAlign: "center" as const, cursor: "pointer",
-        },
+    // Find widest layer for centering
+    const layerWidths = layers.map(l => l.length * nodeW + Math.max(0, l.length - 1) * hGap);
+    const maxWidth = Math.max(...layerWidths, 400);
+    const centerX = maxWidth / 2;
+
+    const newNodes: Node[] = [];
+    layers.forEach((layer, li) => {
+      if (layer.length === 0) return;
+      const totalW = layer.length * nodeW + (layer.length - 1) * hGap;
+      const startX = centerX - totalW / 2;
+      const y = li * layerGap;
+
+      layer.forEach((pnr, i) => {
+        const isFocus = pnr === focusPnr;
+        newNodes.push({
+          id: pnr,
+          position: { x: startX + i * (nodeW + hGap), y },
+          data: { label: getLabel(pnr) },
+          style: isFocus
+            ? {
+                background: "hsl(211, 68%, 40%)", color: "white",
+                border: "3px solid hsl(211, 68%, 25%)", borderRadius: "12px",
+                padding: "12px 20px", fontSize: "14px", fontWeight: "700",
+                minWidth: `${nodeW}px`, textAlign: "center" as const,
+                boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+              }
+            : {
+                background: "hsl(var(--card))", color: "hsl(var(--card-foreground))",
+                border: "2px solid hsl(var(--border))", borderRadius: "10px",
+                padding: "10px 16px", fontSize: "13px", fontWeight: "500",
+                minWidth: `${nodeW}px`, textAlign: "center" as const, cursor: "pointer",
+              },
+        });
       });
     });
 
@@ -185,20 +283,28 @@ export default function RelationsPage() {
       "KU": "#0891b2", "Kusin": "#0891b2",
     };
 
-    const newEdges: Edge[] = uniqueRelations.map((r: RelationData) => ({
-      id: String(r.id),
-      source: r.person_a,
-      target: r.person_b,
-      label: r.relation_label || r.rel_typ,
-      type: "default",
-      animated: r.rel_typ === "M",
-      style: { stroke: relationColors[r.rel_typ] || "#888", strokeWidth: 2 },
-      labelStyle: { fontSize: "11px", fontWeight: "600", fill: relationColors[r.rel_typ] || "#888" },
-      labelBgStyle: { fill: "hsl(var(--background))", fillOpacity: 0.9 },
-      labelBgPadding: [6, 4] as [number, number],
-      labelBgBorderRadius: 4,
-      markerEnd: { type: MarkerType.ArrowClosed, color: relationColors[r.rel_typ] || "#888", width: 16, height: 16 },
-    }));
+    const newEdges: Edge[] = uniqueRelations.map((r: RelationData) => {
+      const color = relationColors[r.rel_typ] || "#888";
+      const isMarriage = r.rel_typ === "M";
+      return {
+        id: String(r.id),
+        source: r.person_a,
+        target: r.person_b,
+        label: r.relation_label || r.rel_typ,
+        type: "smoothstep",
+        animated: false,
+        style: {
+          stroke: color,
+          strokeWidth: 2,
+          strokeDasharray: isMarriage ? "8 4" : undefined,
+        },
+        labelStyle: { fontSize: "11px", fontWeight: "600", fill: color },
+        labelBgStyle: { fill: "hsl(var(--background))", fillOpacity: 0.9 },
+        labelBgPadding: [6, 4] as [number, number],
+        labelBgBorderRadius: 4,
+        markerEnd: isMarriage ? undefined : { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
+      };
+    });
 
     setNodes(newNodes);
     setEdges(newEdges);
