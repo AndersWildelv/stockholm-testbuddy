@@ -330,6 +330,7 @@ export type Database = {
       }
       kp_persons: {
         Row: {
+          belongs_to_region_stockholm: boolean | null
           booked_to_region_stockholm: boolean | null
           county: string | null
           created_at: string | null
@@ -347,6 +348,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          belongs_to_region_stockholm?: boolean | null
           booked_to_region_stockholm?: boolean | null
           county?: string | null
           created_at?: string | null
@@ -364,6 +366,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          belongs_to_region_stockholm?: boolean | null
           booked_to_region_stockholm?: boolean | null
           county?: string | null
           created_at?: string | null
@@ -399,6 +402,7 @@ export type Database = {
       }
       kp_v_person_directory: {
         Row: {
+          belongs_to_region_stockholm: boolean | null
           booked_to_region_stockholm: boolean | null
           county: string | null
           fb_address1: string | null
@@ -414,6 +418,7 @@ export type Database = {
           pnr: string | null
         }
         Insert: {
+          belongs_to_region_stockholm?: boolean | null
           booked_to_region_stockholm?: boolean | null
           county?: string | null
           fb_address1?: string | null
@@ -429,6 +434,7 @@ export type Database = {
           pnr?: string | null
         }
         Update: {
+          belongs_to_region_stockholm?: boolean | null
           booked_to_region_stockholm?: boolean | null
           county?: string | null
           fb_address1?: string | null
@@ -447,6 +453,7 @@ export type Database = {
       }
       kp_v_region_stockholm_booked: {
         Row: {
+          belongs_to_region_stockholm: boolean | null
           booked_to_region_stockholm: boolean | null
           county: string | null
           created_at: string | null
@@ -464,6 +471,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          belongs_to_region_stockholm?: boolean | null
           booked_to_region_stockholm?: boolean | null
           county?: string | null
           created_at?: string | null
@@ -481,6 +489,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          belongs_to_region_stockholm?: boolean | null
           booked_to_region_stockholm?: boolean | null
           county?: string | null
           created_at?: string | null
