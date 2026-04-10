@@ -345,6 +345,7 @@ export type Database = {
           middle_name: string | null
           municipality: string | null
           pnr: string | null
+          protected_identity: boolean | null
           updated_at: string | null
         }
         Insert: {
@@ -363,6 +364,7 @@ export type Database = {
           middle_name?: string | null
           municipality?: string | null
           pnr?: string | null
+          protected_identity?: boolean | null
           updated_at?: string | null
         }
         Update: {
@@ -381,6 +383,7 @@ export type Database = {
           middle_name?: string | null
           municipality?: string | null
           pnr?: string | null
+          protected_identity?: boolean | null
           updated_at?: string | null
         }
         Relationships: []
@@ -416,6 +419,7 @@ export type Database = {
           middle_name: string | null
           municipality: string | null
           pnr: string | null
+          protected_identity: boolean | null
         }
         Insert: {
           belongs_to_region_stockholm?: boolean | null
@@ -432,6 +436,7 @@ export type Database = {
           middle_name?: string | null
           municipality?: string | null
           pnr?: string | null
+          protected_identity?: boolean | null
         }
         Update: {
           belongs_to_region_stockholm?: boolean | null
@@ -448,6 +453,7 @@ export type Database = {
           middle_name?: string | null
           municipality?: string | null
           pnr?: string | null
+          protected_identity?: boolean | null
         }
         Relationships: []
       }
