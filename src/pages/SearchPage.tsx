@@ -78,7 +78,7 @@ export default function SearchPage() {
     "Person med HSA-ID",
     "Man i Nacka kommun",
     "Person bokad till Region Stockholm",
-    "Person med efternamn Andersson",
+    "Person med skyddad identitet",
   ];
 
   return (

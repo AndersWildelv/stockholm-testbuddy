@@ -23,6 +23,7 @@ interface Person {
   fb_address2: string | null;
   booked_to_region_stockholm: boolean;
   hsaid: string | null;
+  protected_identity: boolean;
 }
 
 type SortDir = "asc" | "desc" | null;
