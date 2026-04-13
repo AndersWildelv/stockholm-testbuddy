@@ -54,6 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated,
         isAdmin: true,
         loading: false,
+        gdprAccepted,
+        acceptGdpr,
         signIn,
         signOut,
         session: fakeSession,
