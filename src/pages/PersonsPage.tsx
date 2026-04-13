@@ -22,6 +22,7 @@ interface Person {
   fb_address1: string | null;
   fb_address2: string | null;
   booked_to_region_stockholm: boolean;
+  belongs_to_region_stockholm: boolean | null;
   hsaid: string | null;
   protected_identity: boolean;
 }
@@ -40,6 +41,7 @@ const COLUMNS: { key: SortKey; label: string; filterable?: "select" | "text"; op
   { key: "fb_postort", label: "Postort", filterable: "text" },
   { key: "fb_postnr", label: "Postnr", filterable: "text" },
   { key: "hsaid", label: "HSA-ID", filterable: "text" },
+  { key: "belongs_to_region_stockholm" as SortKey, label: "Tillhör RS", filterable: "select", options: ["Ja", "Nej"] },
 ];
 
 export default function PersonsPage() {
@@ -116,6 +118,10 @@ export default function PersonsPage() {
       const v = value.toLowerCase();
       result = result.filter((p) => {
         if (key === "last_name") return `${p.first_name ?? ""} ${p.middle_name ?? ""} ${p.last_name ?? ""}`.toLowerCase().includes(v);
+        if (key === "belongs_to_region_stockholm") {
+          const boolVal = v === "ja";
+          return p.belongs_to_region_stockholm === boolVal;
+        }
         return String((p as any)[key] ?? "").toLowerCase().includes(v);
       });
     }
@@ -192,7 +198,7 @@ export default function PersonsPage() {
 
       <div className="rounded-lg border bg-card overflow-hidden">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[1200px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {COLUMNS.map((col) => (
@@ -226,6 +232,13 @@ export default function PersonsPage() {
                       <TableCell>{p.fb_postort || "–"}</TableCell>
                       <TableCell>{p.fb_postnr || "–"}</TableCell>
                       <TableCell className="font-mono text-xs">{p.hsaid || "–"}</TableCell>
+                      <TableCell>
+                        {p.belongs_to_region_stockholm ? (
+                          <Badge variant="default" className="text-xs">Ja</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Nej</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {p.booked_to_region_stockholm ? (
                           <Badge variant="default" className="text-xs">Ja</Badge>
