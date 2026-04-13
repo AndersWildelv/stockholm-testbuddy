@@ -148,6 +148,8 @@ export default function RelationsPage() {
 
   // Relation list for selected person
   const [personRelations, setPersonRelations] = useState<RelationData[]>([]);
+  // Direct relations for info panel (fetched per selected person)
+  const [selectedPersonRelations, setSelectedPersonRelations] = useState<RelationData[]>([]);
 
   const loadGraphForPerson = useCallback(async (focusPnr: string) => {
     setLoading(true);
@@ -266,6 +268,13 @@ export default function RelationsPage() {
 
     setAllRelations(uniqueRelations);
     setPersonRelations(filtered);
+    // Also set selectedPersonRelations for the initial focus person
+    const initEdgeMap = new Map<string, RelationData>();
+    for (const r of filtered) {
+      const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
+      if (!initEdgeMap.has(key)) initEdgeMap.set(key, r);
+    }
+    setSelectedPersonRelations(Array.from(initEdgeMap.values()));
 
     const relTypes = ([...new Set(uniqueRelations.map((r: RelationData) => r.rel_typ))] as string[]).filter(Boolean).sort();
     setAvailableRelTypes(relTypes);
@@ -442,9 +451,24 @@ export default function RelationsPage() {
     }
   }, [personPnr, loadGraphForPerson, loadAllRelations]);
 
-  const handleNodeClick = useCallback((_: any, node: Node) => {
+  const handleNodeClick = useCallback(async (_: any, node: Node) => {
     const person = allPersons.find(p => p.pnr === node.id);
-    if (person) setSelectedPerson(person);
+    if (person) {
+      setSelectedPerson(person);
+      // Fetch all direct relations for this person for the info panel
+      const { data: rels } = await supabase
+        .from("kp_person_relationships" as any)
+        .select("*")
+        .or(`person_a.eq.${node.id},person_b.eq.${node.id}`);
+      const filtered = ((rels as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
+      // Deduplicate
+      const edgeMap = new Map<string, RelationData>();
+      for (const r of filtered) {
+        const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
+        if (!edgeMap.has(key)) edgeMap.set(key, r);
+      }
+      setSelectedPersonRelations(Array.from(edgeMap.values()));
+    }
   }, [allPersons]);
 
   const handleNodeDoubleClick = useCallback((_: any, node: Node) => {
@@ -459,11 +483,12 @@ export default function RelationsPage() {
       )
     : [];
 
-  // Filtered relations for the currently selected person (not just the URL person)
+  // Filtered relations for the currently selected person
   const selectedPnr = selectedPerson?.pnr || personPnr;
-  const displayedRelations = allRelations.filter(r =>
-    (r.person_a === selectedPnr || r.person_b === selectedPnr) &&
-    (relTypeFilter === "all" || r.rel_typ === relTypeFilter)
+  const displayedRelations = (selectedPersonRelations.length > 0 ? selectedPersonRelations : allRelations.filter(r =>
+    r.person_a === selectedPnr || r.person_b === selectedPnr
+  )).filter(r =>
+    relTypeFilter === "all" || r.rel_typ === relTypeFilter
   );
 
   return (
