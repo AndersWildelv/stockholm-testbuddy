@@ -653,7 +653,7 @@ export default function RelationsPage() {
               </div>
 
               {/* Person's relations list */}
-              {personPnr && displayedRelations.length > 0 && (
+              {selectedPnr && displayedRelations.length > 0 && (
                 <div className="pt-2 border-t">
                   <h4 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Relationer</h4>
                   <div className="space-y-1">
@@ -661,8 +661,8 @@ export default function RelationsPage() {
                       // Deduplicate: group by other person, collect unique relation descriptions
                       const grouped = new Map<string, { otherPnr: string; labels: Set<string> }>();
                       for (const r of displayedRelations) {
-                        const otherPnr = r.person_a === personPnr ? r.person_b : r.person_a;
-                        if (!otherPnr) continue;
+                        const otherPnr = r.person_a === selectedPnr ? r.person_b : r.person_a;
+                        if (!otherPnr || otherPnr === selectedPnr) continue;
                         if (!grouped.has(otherPnr)) {
                           grouped.set(otherPnr, { otherPnr, labels: new Set() });
                         }
