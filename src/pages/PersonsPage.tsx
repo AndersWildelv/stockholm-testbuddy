@@ -80,16 +80,7 @@ export default function PersonsPage() {
 
   useEffect(() => {
     const tableScroll = tableScrollRef.current;
-    const topScroll = topScrollRef.current;
-    if (!tableScroll || !topScroll) return;
-
-    const syncTopFromTable = () => {
-      topScroll.scrollLeft = tableScroll.scrollLeft;
-    };
-
-    const syncTableFromTop = () => {
-      tableScroll.scrollLeft = topScroll.scrollLeft;
-    };
+    if (!tableScroll) return;
 
     const updateWidth = () => {
       const table = tableScroll.querySelector("table");
@@ -97,15 +88,9 @@ export default function PersonsPage() {
     };
 
     updateWidth();
-    syncTopFromTable();
-
-    tableScroll.addEventListener("scroll", syncTopFromTable);
-    topScroll.addEventListener("scroll", syncTableFromTop);
     window.addEventListener("resize", updateWidth);
 
     return () => {
-      tableScroll.removeEventListener("scroll", syncTopFromTable);
-      topScroll.removeEventListener("scroll", syncTableFromTop);
       window.removeEventListener("resize", updateWidth);
     };
   }, [loading, persons.length, globalFilter, columnFilters, sortKey, sortDir]);
@@ -237,10 +222,26 @@ export default function PersonsPage() {
       </div>
 
       <div className="rounded-lg border bg-card overflow-hidden">
-        <div ref={topScrollRef} className="overflow-x-auto overflow-y-hidden border-b">
+        <div
+          ref={topScrollRef}
+          className="overflow-x-auto overflow-y-hidden border-b"
+          onScroll={(e) => {
+            if (tableScrollRef.current) {
+              tableScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+            }
+          }}
+        >
           <div className="h-4" style={{ width: `${tableMinWidth}px` }} />
         </div>
-        <div ref={tableScrollRef} className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
+        <div
+          ref={tableScrollRef}
+          className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto"
+          onScroll={(e) => {
+            if (topScrollRef.current) {
+              topScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+            }
+          }}
+        >
           <Table className="min-w-[1200px] table-fixed">
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow className="hover:bg-transparent">
