@@ -653,14 +653,14 @@ export default function RelationsPage() {
               </div>
 
               {/* Person's relations list */}
-              {personPnr && filteredPersonRelations.length > 0 && (
+              {personPnr && displayedRelations.length > 0 && (
                 <div className="pt-2 border-t">
                   <h4 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Relationer</h4>
                   <div className="space-y-1">
                     {(() => {
                       // Deduplicate: group by other person, collect unique relation descriptions
                       const grouped = new Map<string, { otherPnr: string; labels: Set<string> }>();
-                      for (const r of filteredPersonRelations) {
+                      for (const r of displayedRelations) {
                         const otherPnr = r.person_a === personPnr ? r.person_b : r.person_a;
                         if (!otherPnr) continue;
                         if (!grouped.has(otherPnr)) {
