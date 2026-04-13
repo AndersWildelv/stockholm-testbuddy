@@ -710,22 +710,27 @@ export default function RelationsPage() {
                         };
                         const firstType = Array.from(relTypes)[0] || "";
                         const colorClass = relationColors[firstType] || "bg-muted text-muted-foreground border-border";
+                        const name = otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : null;
                         return (
                           <div
                             key={otherPnr}
                             className={`rounded-lg border p-2.5 cursor-pointer hover:shadow-sm transition-shadow ${colorClass}`}
                             onClick={() => navigate(`/relations?person=${otherPnr}`)}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="text-xs font-semibold truncate">
-                                  {otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : otherPnr}
-                                </p>
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold truncate">
+                                {name || otherPnr}
+                              </p>
+                              {name && (
                                 <p className="text-[10px] opacity-70 font-mono">{otherPnr}</p>
+                              )}
+                              <div className="flex flex-wrap gap-1">
+                                {Array.from(labels).map(label => (
+                                  <Badge key={label} variant="outline" className="text-[10px] border-current/30 bg-white/50">
+                                    {label}
+                                  </Badge>
+                                ))}
                               </div>
-                              <Badge variant="outline" className="text-[10px] shrink-0 border-current/30 bg-white/50">
-                                {Array.from(labels).join(", ")}
-                              </Badge>
                             </div>
                           </div>
                         );
