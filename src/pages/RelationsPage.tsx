@@ -11,8 +11,83 @@ import {
   ConnectionLineType,
   MarkerType,
   Panel,
+  EdgeLabelRenderer,
+  getBezierPath,
+  getSmoothStepPath,
+  type EdgeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+const RELATION_TYPE_DESCRIPTIONS: Record<string, string> = {
+  "M": "Make/Maka – Gift med",
+  "B": "Barn",
+  "FA": "Far – Förälder (far)",
+  "MO": "Mor – Förälder (mor)",
+  "F": "Förälder",
+  "P": "Partner",
+  "V": "Vårdnadshavare",
+  "VF": "Vårdnadshavare Far",
+  "SY": "Syskon",
+  "KU": "Kusin",
+};
+
+function TooltipEdge({
+  id, sourceX, sourceY, targetX, targetY,
+  sourcePosition, targetPosition, style, markerEnd, data, label,
+}: EdgeProps) {
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
+    sourceX, sourceY, sourcePosition,
+    targetX, targetY, targetPosition,
+  });
+
+  const relTyp = (data?.relTyp as string) || "";
+  const description = RELATION_TYPE_DESCRIPTIONS[relTyp] || (label as string) || relTyp;
+
+  return (
+    <>
+      <path id={id} style={style} className="react-flow__edge-path" d={edgePath} markerEnd={markerEnd as string} />
+      <EdgeLabelRenderer>
+        <div
+          style={{
+            position: "absolute",
+            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+            pointerEvents: "all",
+          }}
+        >
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    color: (style?.stroke as string) || "#888",
+                    background: "hsl(var(--background))",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    cursor: "default",
+                    opacity: 0.95,
+                  }}
+                >
+                  {(label as string) || relTyp}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[200px]">
+                <p className="text-xs font-medium">{description}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </EdgeLabelRenderer>
+    </>
+  );
+}
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -291,17 +366,14 @@ export default function RelationsPage() {
         source: r.person_a,
         target: r.person_b,
         label: r.relation_label || r.rel_typ,
-        type: "smoothstep",
+        type: "tooltip",
+        data: { relTyp: r.rel_typ },
         animated: false,
         style: {
           stroke: color,
           strokeWidth: 2,
           strokeDasharray: isMarriage ? "8 4" : undefined,
         },
-        labelStyle: { fontSize: "11px", fontWeight: "600", fill: color },
-        labelBgStyle: { fill: "hsl(var(--background))", fillOpacity: 0.9 },
-        labelBgPadding: [6, 4] as [number, number],
-        labelBgBorderRadius: 4,
         markerEnd: isMarriage ? undefined : { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
       };
     });
@@ -506,6 +578,7 @@ export default function RelationsPage() {
               onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
               onNodeClick={handleNodeClick} onNodeDoubleClick={handleNodeDoubleClick}
               connectionLineType={ConnectionLineType.SmoothStep}
+              edgeTypes={{ tooltip: TooltipEdge }}
               fitView fitViewOptions={{ padding: 0.3 }}
               minZoom={0.3} maxZoom={2}
               proOptions={{ hideAttribution: true }}
