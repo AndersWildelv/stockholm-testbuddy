@@ -202,7 +202,7 @@ export default function PersonsPage() {
       </div>
 
       <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
           <Table className="min-w-[1200px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
