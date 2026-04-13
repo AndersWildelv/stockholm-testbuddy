@@ -529,7 +529,14 @@ export default function RelationsPage() {
                       <TableRow key={r.id}>
                         <TableCell className="font-mono text-xs">{r.person_a}</TableCell>
                         <TableCell className="font-mono text-xs">{r.person_b}</TableCell>
-                        <TableCell>{r.rel_typ}</TableCell>
+                        <TableCell>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help border-b border-dotted border-muted-foreground/50">{r.rel_typ}</span>
+                            </TooltipTrigger>
+                            <TooltipContent>{getRelationDescription(r.rel_typ) || r.relation_label || r.rel_typ}</TooltipContent>
+                          </Tooltip>
+                        </TableCell>
                         <TableCell>{r.relation_label || "–"}</TableCell>
                         <TableCell>{r.status || "–"}</TableCell>
                         <TableCell>{r.start_date || "–"}</TableCell>
@@ -655,7 +662,12 @@ export default function RelationsPage() {
                           <span className="font-medium">
                             {otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : otherPnr}
                           </span>
-                          <Badge variant="outline" className="text-[10px]">{r.relation_label || r.rel_typ}</Badge>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span><Badge variant="outline" className="text-[10px] cursor-help">{r.relation_label || r.rel_typ}</Badge></span>
+                            </TooltipTrigger>
+                            <TooltipContent>{getRelationDescription(r.rel_typ) || r.relation_label || r.rel_typ}</TooltipContent>
+                          </Tooltip>
                         </div>
                       );
                     })}
