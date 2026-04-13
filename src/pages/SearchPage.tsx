@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -44,6 +45,7 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<SearchResult | null>(null);
+  const [onlyRegionStockholm, setOnlyRegionStockholm] = useState(false);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +56,7 @@ export default function SearchPage() {
 
     try {
       const { data, error } = await supabase.functions.invoke("ai-search", {
-        body: { query: query.trim() },
+        body: { query: query.trim(), belongs_to_region_stockholm: onlyRegionStockholm || undefined },
       });
 
       if (error) throw error;
@@ -90,20 +92,32 @@ export default function SearchPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <form onSubmit={handleSearch} className="flex gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder='T.ex. "Kvinna bosatt i Solna med HSA-ID"'
-                className="pl-10"
-                disabled={isLoading}
-              />
+          <form onSubmit={handleSearch} className="space-y-3">
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder='T.ex. "Kvinna bosatt i Solna med HSA-ID"'
+                  className="pl-10"
+                  disabled={isLoading}
+                />
+              </div>
+              <Button type="submit" disabled={!query.trim() || isLoading}>
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sök"}
+              </Button>
             </div>
-            <Button type="submit" disabled={!query.trim() || isLoading}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sök"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="region-stockholm"
+                checked={onlyRegionStockholm}
+                onCheckedChange={(checked) => setOnlyRegionStockholm(checked === true)}
+              />
+              <label htmlFor="region-stockholm" className="text-sm text-foreground cursor-pointer select-none">
+                Endast personer som tillhör Region Stockholm
+              </label>
+            </div>
           </form>
 
           {!result && !isLoading && (
