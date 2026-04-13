@@ -42,6 +42,7 @@ const COLUMNS: { key: SortKey; label: string; filterable?: "select" | "text"; op
   { key: "fb_postnr", label: "Postnr", filterable: "text" },
   { key: "hsaid", label: "HSA-ID", filterable: "text" },
   { key: "belongs_to_region_stockholm" as SortKey, label: "Tillhör RS", filterable: "select", options: ["Ja", "Nej"] },
+  { key: "works_rs" as SortKey, label: "Jobbar RS", filterable: "select", options: ["Ja", "Nej"] },
 ];
 
 export default function PersonsPage() {
@@ -121,6 +122,10 @@ export default function PersonsPage() {
         if (key === "belongs_to_region_stockholm") {
           const boolVal = v === "ja";
           return p.belongs_to_region_stockholm === boolVal;
+        }
+        if (key === "works_rs") {
+          const wantsYes = v === "ja";
+          return wantsYes ? !!p.hsaid : !p.hsaid;
         }
         return String((p as any)[key] ?? "").toLowerCase().includes(v);
       });
@@ -239,6 +244,12 @@ export default function PersonsPage() {
                           <span className="text-xs text-muted-foreground">Nej</span>
                         )}
                       </TableCell>
+                      <TableCell>
+                        {p.hsaid ? (
+                          <Badge variant="default" className="text-xs">Ja</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Nej</span>
+                        )}
                       <TableCell>
                         {p.booked_to_region_stockholm ? (
                           <Badge variant="default" className="text-xs">Ja</Badge>
