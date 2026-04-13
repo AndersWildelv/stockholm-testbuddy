@@ -5,7 +5,7 @@ import {
   Users,
   CalendarClock,
   GitFork,
-  FileUp,
+  
   Shield,
   LogOut,
 } from "lucide-react";
