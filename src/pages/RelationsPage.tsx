@@ -681,28 +681,52 @@ export default function RelationsPage() {
               {selectedPnr && displayedRelations.length > 0 && (
                 <div className="pt-2 border-t">
                   <h4 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Relationer</h4>
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {(() => {
-                      // Deduplicate: group by other person, collect unique relation descriptions
-                      const grouped = new Map<string, { otherPnr: string; labels: Set<string> }>();
+                      const grouped = new Map<string, { otherPnr: string; labels: Set<string>; relTypes: Set<string> }>();
                       for (const r of displayedRelations) {
                         const otherPnr = r.person_a === selectedPnr ? r.person_b : r.person_a;
                         if (!otherPnr || otherPnr === selectedPnr) continue;
                         if (!grouped.has(otherPnr)) {
-                          grouped.set(otherPnr, { otherPnr, labels: new Set() });
+                          grouped.set(otherPnr, { otherPnr, labels: new Set(), relTypes: new Set() });
                         }
                         const desc = getRelationDescription(r.rel_typ) || r.relation_label || r.rel_typ;
                         if (desc) grouped.get(otherPnr)!.labels.add(desc);
+                        if (r.rel_typ) grouped.get(otherPnr)!.relTypes.add(r.rel_typ);
                       }
-                      return Array.from(grouped.values()).map(({ otherPnr, labels }) => {
+                      return Array.from(grouped.values()).map(({ otherPnr, labels, relTypes }) => {
                         const otherPerson = allPersons.find(p => p.pnr === otherPnr);
-                        const displayLabel = Array.from(labels).join(", ");
+                        const relationColors: Record<string, string> = {
+                          "M": "bg-rose-100 text-rose-800 border-rose-200",
+                          "B": "bg-violet-100 text-violet-800 border-violet-200",
+                          "FA": "bg-violet-100 text-violet-800 border-violet-200",
+                          "MO": "bg-violet-100 text-violet-800 border-violet-200",
+                          "F": "bg-violet-100 text-violet-800 border-violet-200",
+                          "SY": "bg-blue-100 text-blue-800 border-blue-200",
+                          "KU": "bg-cyan-100 text-cyan-800 border-cyan-200",
+                          "P": "bg-pink-100 text-pink-800 border-pink-200",
+                          "V": "bg-amber-100 text-amber-800 border-amber-200",
+                          "VF": "bg-amber-100 text-amber-800 border-amber-200",
+                        };
+                        const firstType = Array.from(relTypes)[0] || "";
+                        const colorClass = relationColors[firstType] || "bg-muted text-muted-foreground border-border";
                         return (
-                          <div key={otherPnr} className="text-xs flex justify-between items-center py-1 border-b border-border/50">
-                            <span className="font-medium">
-                              {otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : otherPnr}
-                            </span>
-                            <Badge variant="outline" className="text-[10px]">{displayLabel}</Badge>
+                          <div
+                            key={otherPnr}
+                            className={`rounded-lg border p-2.5 cursor-pointer hover:shadow-sm transition-shadow ${colorClass}`}
+                            onClick={() => navigate(`/relations?person=${otherPnr}`)}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold truncate">
+                                  {otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : otherPnr}
+                                </p>
+                                <p className="text-[10px] opacity-70 font-mono">{otherPnr}</p>
+                              </div>
+                              <Badge variant="outline" className="text-[10px] shrink-0 border-current/30 bg-white/50">
+                                {Array.from(labels).join(", ")}
+                              </Badge>
+                            </div>
                           </div>
                         );
                       });
