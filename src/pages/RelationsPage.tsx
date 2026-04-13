@@ -686,6 +686,7 @@ export default function RelationsPage() {
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 
