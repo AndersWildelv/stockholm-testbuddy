@@ -250,6 +250,7 @@ export default function PersonsPage() {
                         ) : (
                           <span className="text-xs text-muted-foreground">Nej</span>
                         )}
+                      </TableCell>
                       <TableCell>
                         {p.booked_to_region_stockholm ? (
                           <Badge variant="default" className="text-xs">Ja</Badge>
