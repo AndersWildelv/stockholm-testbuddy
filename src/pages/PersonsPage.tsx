@@ -227,7 +227,7 @@ export default function PersonsPage() {
                   const isBooked = bookedPnrs.has(p.pnr);
                   return (
                     <TableRow key={p.pnr} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/relations?person=${p.pnr}`)}>
-                      <TableCell className="font-medium whitespace-nowrap">
+                      <TableCell className="font-medium">
                         {p.first_name} {p.middle_name ? `${p.middle_name} ` : ""}{p.last_name}
                       </TableCell>
                       <TableCell className="font-mono text-xs">{p.pnr}</TableCell>
