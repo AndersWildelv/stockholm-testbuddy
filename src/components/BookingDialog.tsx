@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { format, addDays } from "date-fns";
+import { format, addDays, addMonths } from "date-fns";
 import { sv } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -157,7 +157,7 @@ export function BookingDialog({ open, onOpenChange, onCreated, preselectedPerson
                   mode="single"
                   selected={endDate}
                   onSelect={(d) => d && setEndDate(d)}
-                  disabled={(d) => d < new Date()}
+                  disabled={(d) => d < new Date() || d > addMonths(new Date(), 6)}
                   initialFocus
                   className="p-3 pointer-events-auto"
                 />
