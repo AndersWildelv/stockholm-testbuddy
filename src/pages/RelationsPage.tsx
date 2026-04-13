@@ -148,6 +148,8 @@ export default function RelationsPage() {
 
   // Relation list for selected person
   const [personRelations, setPersonRelations] = useState<RelationData[]>([]);
+  // Direct relations for info panel (fetched per selected person)
+  const [selectedPersonRelations, setSelectedPersonRelations] = useState<RelationData[]>([]);
 
   const loadGraphForPerson = useCallback(async (focusPnr: string) => {
     setLoading(true);
