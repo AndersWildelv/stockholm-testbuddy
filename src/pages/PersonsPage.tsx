@@ -203,14 +203,14 @@ export default function PersonsPage() {
 
       <div className="rounded-lg border bg-card overflow-hidden">
         <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
-          <Table className="min-w-[1200px]">
-            <TableHeader>
+          <Table className="min-w-[1200px] table-fixed">
+            <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow className="hover:bg-transparent">
                 {COLUMNS.map((col) => (
-                  <TableHead key={col.key} className="align-top py-2"><ColumnHeaderWithFilter col={col} /></TableHead>
+                  <TableHead key={col.key} className={`align-top py-2 ${col.key === "last_name" ? "w-[160px]" : ""}`}><ColumnHeaderWithFilter col={col} /></TableHead>
                 ))}
-                <TableHead className="align-top py-2">Bokad RS</TableHead>
-                <TableHead className="align-top py-2">Bokning</TableHead>
+                <TableHead className="align-top py-2 w-[80px]">Bokad RS</TableHead>
+                <TableHead className="align-top py-2 w-[100px]">Bokning</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
