@@ -108,7 +108,7 @@ export default function PersonsPage() {
       topScroll.removeEventListener("scroll", syncTableFromTop);
       window.removeEventListener("resize", updateWidth);
     };
-  }, [filtered.length]);
+  }, [loading, persons.length, globalFilter, columnFilters, sortKey, sortDir]);
 
   const refreshBookings = async () => {
     const { data } = await supabase.from("bookings").select("person_id").eq("status", "active");
