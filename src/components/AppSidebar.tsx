@@ -5,7 +5,7 @@ import {
   Users,
   CalendarClock,
   GitFork,
-  FileUp,
+  
   Shield,
   LogOut,
 } from "lucide-react";
@@ -21,7 +21,7 @@ const navItems = [
 ];
 
 const adminItems = [
-  { to: "/import", label: "Excel-import", icon: FileUp },
+  
   { to: "/admin", label: "Administration", icon: Shield },
 ];
 

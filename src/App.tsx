@@ -11,7 +11,7 @@ import SearchPage from "./pages/SearchPage";
 import PersonsPage from "./pages/PersonsPage";
 import BookingsPage from "./pages/BookingsPage";
 import RelationsPage from "./pages/RelationsPage";
-import ImportPage from "./pages/ImportPage";
+
 import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 
@@ -38,7 +38,7 @@ function AuthGate() {
         <Route path="/persons" element={<PersonsPage />} />
         <Route path="/bookings" element={<BookingsPage />} />
         <Route path="/relations" element={<RelationsPage />} />
-        <Route path="/import" element={<ImportPage />} />
+        
         <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
