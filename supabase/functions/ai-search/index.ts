@@ -7,6 +7,32 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function calculateBirthDateRange(minAge?: number, maxAge?: number): { minBirthDate?: string; maxBirthDate?: string } {
+  const today = new Date();
+  const result: { minBirthDate?: string; maxBirthDate?: string } = {};
+  
+  if (maxAge !== undefined) {
+    // Person must be at most maxAge → born on or after this date
+    const d = new Date(today.getFullYear() - maxAge - 1, today.getMonth(), today.getDate());
+    d.setDate(d.getDate() + 1);
+    const yyyy = d.getFullYear().toString();
+    const mm = (d.getMonth() + 1).toString().padStart(2, "0");
+    const dd = d.getDate().toString().padStart(2, "0");
+    result.minBirthDate = `${yyyy}${mm}${dd}`;
+  }
+  
+  if (minAge !== undefined) {
+    // Person must be at least minAge → born on or before this date
+    const d = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
+    const yyyy = d.getFullYear().toString();
+    const mm = (d.getMonth() + 1).toString().padStart(2, "0");
+    const dd = d.getDate().toString().padStart(2, "0");
+    result.maxBirthDate = `${yyyy}${mm}${dd}`;
+  }
+  
+  return result;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -28,7 +54,7 @@ serve(async (req) => {
     const systemPrompt = `Du är en expert på att tolka svenska fritextfrågor om testpersoner och översätta dem till strukturerade sökfilter.
 
 Databasen har dessa sökbara fält (vy: kp_v_person_directory):
-- pnr (text): Personnummer (12 siffror, t.ex. 199301052388)
+- pnr (text): Personnummer (12 siffror, t.ex. 199301052388). De första 8 siffrorna är födelsedatum (ÅÅÅÅMMDD).
 - first_name (text): Förnamn
 - middle_name (text): Mellannamn
 - last_name (text): Efternamn
@@ -71,6 +97,8 @@ Filters kan innehålla:
 - "last_name": ILIKE-mönster
 - "name_search": delvis namnmatchning
 - "gender": "M" eller "K"
+- "min_age": minimum ålder i år (heltal). Används för "äldre än X", "minst X år", "över X"
+- "max_age": maximum ålder i år (heltal). Används för "yngre än X", "under X år", "max X år"
 - "municipality": exakt kommunkod (t.ex. "80" för Stockholm, "82" för Nacka)
 - "county": exakt länskod (t.ex. "1" för Stockholms län)
 - "fb_postnr": exakt
@@ -84,6 +112,13 @@ Filters kan innehålla:
 - "not_has_relation": array av relationstyper personen INTE ska ha
 
 VIKTIGT:
+- "barn under 12" eller "barn som är under 12 år" → max_age: 11 (barn = person, inte relation)
+- "personer över 65" → min_age: 65
+- "mellan 18 och 30 år" → min_age: 18, max_age: 30
+- "barn" (utan åldersspecifikation) → max_age: 17
+- "vuxna" → min_age: 18
+- "pensionärer" → min_age: 65
+- "tonåringar" → min_age: 13, max_age: 19
 - "gift" eller "gifta" → has_relation: ["M"]
 - "med barn" eller "har barn" → has_relation: ["B"]  
 - "gift med barn" → has_relation: ["M", "B"]
@@ -125,6 +160,8 @@ VIKTIGT:
                       last_name: { type: "string" },
                       name_search: { type: "string" },
                       gender: { type: "string", enum: ["M", "K"] },
+                      min_age: { type: "integer", description: "Minimum age in years" },
+                      max_age: { type: "integer", description: "Maximum age in years" },
                       municipality: { type: "string" },
                       county: { type: "string" },
                       fb_postnr: { type: "string" },
@@ -176,7 +213,6 @@ VIKTIGT:
     let relationFilteredPnrs: string[] | null = null;
 
     if (filters.has_relation && Array.isArray(filters.has_relation) && filters.has_relation.length > 0) {
-      // For each required relation type, find persons (person_a) that have that relation
       const pnrSets: Set<string>[] = [];
       for (const relType of filters.has_relation) {
         const { data: rels, error: relError } = await supabase
@@ -190,7 +226,6 @@ VIKTIGT:
         const pnrs = new Set((rels || []).map((r: { person_a: string }) => r.person_a));
         pnrSets.push(pnrs);
       }
-      // Intersect all sets
       if (pnrSets.length > 0) {
         relationFilteredPnrs = [...pnrSets[0]].filter(pnr => 
           pnrSets.every(set => set.has(pnr))
@@ -210,7 +245,6 @@ VIKTIGT:
       if (relationFilteredPnrs) {
         relationFilteredPnrs = relationFilteredPnrs.filter(pnr => !excludePnrs.has(pnr));
       } else {
-        // Need to get all PNRs and exclude
         const { data: allPersons } = await supabase
           .from("kp_v_person_directory")
           .select("pnr");
@@ -220,7 +254,6 @@ VIKTIGT:
       }
     }
 
-    // If relation filter returned no matches, return empty
     if (relationFilteredPnrs !== null && relationFilteredPnrs.length === 0) {
       return new Response(
         JSON.stringify({ persons: [], filters, reasoning, total: 0 }),
@@ -235,7 +268,6 @@ VIKTIGT:
       .eq("status", "active");
     const activelyBookedPnrs = new Set((activeBookings || []).map((b: { person_id: string }) => b.person_id));
 
-    // If we have relation-filtered PNRs, also exclude booked ones
     if (relationFilteredPnrs !== null) {
       relationFilteredPnrs = relationFilteredPnrs.filter(pnr => !activelyBookedPnrs.has(pnr));
       if (relationFilteredPnrs.length === 0) {
@@ -246,14 +278,22 @@ VIKTIGT:
       }
     }
 
+    // Calculate birth date range for age filtering
+    const { minBirthDate, maxBirthDate } = calculateBirthDateRange(
+      typeof filters.min_age === "number" ? filters.min_age : undefined,
+      typeof filters.max_age === "number" ? filters.max_age : undefined
+    );
+
+    // If age filters exist, we need to filter by PNR prefix (birth date portion)
+    // We'll do this in post-processing since PNR is text and we need substring comparison
+    const hasAgeFilter = minBirthDate || maxBirthDate;
+
     let dbQuery = supabase
       .from("kp_v_person_directory")
       .select("*")
-      .limit(50);
+      .limit(hasAgeFilter ? 1000 : 50);
 
-    // Apply relation PNR filter
     if (relationFilteredPnrs !== null) {
-      // Supabase .in() has limits, take first 500 to be safe
       dbQuery = dbQuery.in("pnr", relationFilteredPnrs.slice(0, 500));
     }
 
@@ -286,8 +326,20 @@ VIKTIGT:
     const { data: persons, error: dbError } = await dbQuery;
     if (dbError) throw new Error(`DB error: ${dbError.message}`);
 
-    // Filter out actively booked persons from results
-    const filteredPersons = (persons || []).filter((p: { pnr: string }) => !activelyBookedPnrs.has(p.pnr));
+    // Filter out actively booked persons and apply age filter
+    let filteredPersons = (persons || []).filter((p: { pnr: string }) => !activelyBookedPnrs.has(p.pnr));
+
+    if (hasAgeFilter) {
+      filteredPersons = filteredPersons.filter((p: { pnr: string | null }) => {
+        if (!p.pnr || p.pnr.length < 8) return false;
+        const birthDateStr = p.pnr.substring(0, 8);
+        if (minBirthDate && birthDateStr < minBirthDate) return false; // Too old
+        if (maxBirthDate && birthDateStr > maxBirthDate) return false; // Too young
+        return true;
+      });
+      // Trim to 50 after age filtering
+      filteredPersons = filteredPersons.slice(0, 50);
+    }
 
     return new Response(
       JSON.stringify({ persons: filteredPersons, filters, reasoning, total: filteredPersons.length }),
