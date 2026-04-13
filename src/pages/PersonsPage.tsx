@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +55,9 @@ export default function PersonsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [bookedPnrs, setBookedPnrs] = useState<Set<string>>(new Set());
   const [bookingPnr, setBookingPnr] = useState<string | null>(null);
+  const topScrollRef = useRef<HTMLDivElement | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tableMinWidth, setTableMinWidth] = useState(1200);
 
   useEffect(() => {
     async function load() {
@@ -74,6 +77,38 @@ export default function PersonsPage() {
     }
     load();
   }, []);
+
+  useEffect(() => {
+    const tableScroll = tableScrollRef.current;
+    const topScroll = topScrollRef.current;
+    if (!tableScroll || !topScroll) return;
+
+    const syncTopFromTable = () => {
+      topScroll.scrollLeft = tableScroll.scrollLeft;
+    };
+
+    const syncTableFromTop = () => {
+      tableScroll.scrollLeft = topScroll.scrollLeft;
+    };
+
+    const updateWidth = () => {
+      const table = tableScroll.querySelector("table");
+      setTableMinWidth(Math.max(table?.scrollWidth ?? 1200, 1200));
+    };
+
+    updateWidth();
+    syncTopFromTable();
+
+    tableScroll.addEventListener("scroll", syncTopFromTable);
+    topScroll.addEventListener("scroll", syncTableFromTop);
+    window.addEventListener("resize", updateWidth);
+
+    return () => {
+      tableScroll.removeEventListener("scroll", syncTopFromTable);
+      topScroll.removeEventListener("scroll", syncTableFromTop);
+      window.removeEventListener("resize", updateWidth);
+    };
+  }, [filtered.length]);
 
   const refreshBookings = async () => {
     const { data } = await supabase.from("bookings").select("person_id").eq("status", "active");
@@ -202,7 +237,10 @@ export default function PersonsPage() {
       </div>
 
       <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
+        <div ref={topScrollRef} className="overflow-x-auto overflow-y-hidden border-b">
+          <div className="h-4" style={{ width: `${tableMinWidth}px` }} />
+        </div>
+        <div ref={tableScrollRef} className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
           <Table className="min-w-[1200px] table-fixed">
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow className="hover:bg-transparent">
