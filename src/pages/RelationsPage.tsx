@@ -444,9 +444,24 @@ export default function RelationsPage() {
     }
   }, [personPnr, loadGraphForPerson, loadAllRelations]);
 
-  const handleNodeClick = useCallback((_: any, node: Node) => {
+  const handleNodeClick = useCallback(async (_: any, node: Node) => {
     const person = allPersons.find(p => p.pnr === node.id);
-    if (person) setSelectedPerson(person);
+    if (person) {
+      setSelectedPerson(person);
+      // Fetch all direct relations for this person for the info panel
+      const { data: rels } = await supabase
+        .from("kp_person_relationships" as any)
+        .select("*")
+        .or(`person_a.eq.${node.id},person_b.eq.${node.id}`);
+      const filtered = ((rels as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
+      // Deduplicate
+      const edgeMap = new Map<string, RelationData>();
+      for (const r of filtered) {
+        const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
+        if (!edgeMap.has(key)) edgeMap.set(key, r);
+      }
+      setSelectedPersonRelations(Array.from(edgeMap.values()));
+    }
   }, [allPersons]);
 
   const handleNodeDoubleClick = useCallback((_: any, node: Node) => {
