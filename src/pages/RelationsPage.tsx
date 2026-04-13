@@ -268,6 +268,13 @@ export default function RelationsPage() {
 
     setAllRelations(uniqueRelations);
     setPersonRelations(filtered);
+    // Also set selectedPersonRelations for the initial focus person
+    const initEdgeMap = new Map<string, RelationData>();
+    for (const r of filtered) {
+      const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
+      if (!initEdgeMap.has(key)) initEdgeMap.set(key, r);
+    }
+    setSelectedPersonRelations(Array.from(initEdgeMap.values()));
 
     const relTypes = ([...new Set(uniqueRelations.map((r: RelationData) => r.rel_typ))] as string[]).filter(Boolean).sort();
     setAvailableRelTypes(relTypes);
