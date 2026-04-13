@@ -286,8 +286,11 @@ VIKTIGT:
     const { data: persons, error: dbError } = await dbQuery;
     if (dbError) throw new Error(`DB error: ${dbError.message}`);
 
+    // Filter out actively booked persons from results
+    const filteredPersons = (persons || []).filter((p: { pnr: string }) => !activelyBookedPnrs.has(p.pnr));
+
     return new Response(
-      JSON.stringify({ persons: persons || [], filters, reasoning, total: persons?.length || 0 }),
+      JSON.stringify({ persons: filteredPersons, filters, reasoning, total: filteredPersons.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
