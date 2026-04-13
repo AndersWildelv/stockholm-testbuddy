@@ -24,18 +24,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const RELATION_TYPE_DESCRIPTIONS: Record<string, string> = {
-  "M": "Make/Maka – Gift med",
-  "B": "Barn",
-  "FA": "Far – Förälder (far)",
-  "MO": "Mor – Förälder (mor)",
-  "F": "Förälder",
-  "P": "Partner",
-  "V": "Vårdnadshavare",
-  "VF": "Vårdnadshavare Far",
-  "SY": "Syskon",
-  "KU": "Kusin",
-};
+import { RELATION_TYPE_DESCRIPTIONS, getRelationDescription } from "@/lib/relationTypes";
 
 function TooltipEdge({
   id, sourceX, sourceY, targetX, targetY,
