@@ -11,7 +11,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { query } = await req.json();
+    const { query, belongs_to_region_stockholm: preFilterRegion } = await req.json();
     if (!query || typeof query !== "string") {
       return new Response(JSON.stringify({ error: "Missing query" }), {
         status: 400,
@@ -255,6 +255,8 @@ VIKTIGT:
     }
     if (filters.belongs_to_region_stockholm !== undefined) {
       dbQuery = dbQuery.eq("belongs_to_region_stockholm", filters.belongs_to_region_stockholm);
+    } else if (preFilterRegion === true) {
+      dbQuery = dbQuery.eq("belongs_to_region_stockholm", true);
     }
     if (filters.hsaid) dbQuery = dbQuery.ilike("hsaid", `%${filters.hsaid}%`);
     if (filters.has_hsaid === true) dbQuery = dbQuery.not("hsaid", "is", null);
