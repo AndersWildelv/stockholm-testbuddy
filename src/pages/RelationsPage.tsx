@@ -465,6 +465,7 @@ export default function RelationsPage() {
   );
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
