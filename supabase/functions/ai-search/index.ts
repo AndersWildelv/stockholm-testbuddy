@@ -228,6 +228,24 @@ VIKTIGT:
       );
     }
 
+    // Exclude persons with active bookings from search results
+    const { data: activeBookings } = await supabase
+      .from("bookings")
+      .select("person_id")
+      .eq("status", "active");
+    const activelyBookedPnrs = new Set((activeBookings || []).map((b: { person_id: string }) => b.person_id));
+
+    // If we have relation-filtered PNRs, also exclude booked ones
+    if (relationFilteredPnrs !== null) {
+      relationFilteredPnrs = relationFilteredPnrs.filter(pnr => !activelyBookedPnrs.has(pnr));
+      if (relationFilteredPnrs.length === 0) {
+        return new Response(
+          JSON.stringify({ persons: [], filters, reasoning, total: 0 }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     let dbQuery = supabase
       .from("kp_v_person_directory")
       .select("*")
