@@ -21,7 +21,7 @@ const navItems = [
 ];
 
 const adminItems = [
-  { to: "/import", label: "Excel-import", icon: FileUp },
+  
   { to: "/admin", label: "Administration", icon: Shield },
 ];
 
