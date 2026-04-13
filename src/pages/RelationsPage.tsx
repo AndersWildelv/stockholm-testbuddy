@@ -459,9 +459,11 @@ export default function RelationsPage() {
       )
     : [];
 
-  // Filtered relations for the person
-  const filteredPersonRelations = personRelations.filter(r =>
-    relTypeFilter === "all" || r.rel_typ === relTypeFilter
+  // Filtered relations for the currently selected person (not just the URL person)
+  const selectedPnr = selectedPerson?.pnr || personPnr;
+  const displayedRelations = allRelations.filter(r =>
+    (r.person_a === selectedPnr || r.person_b === selectedPnr) &&
+    (relTypeFilter === "all" || r.rel_typ === relTypeFilter)
   );
 
   return (
