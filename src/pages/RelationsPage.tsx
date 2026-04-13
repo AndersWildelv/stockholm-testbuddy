@@ -655,23 +655,31 @@ export default function RelationsPage() {
                 <div className="pt-2 border-t">
                   <h4 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Relationer</h4>
                   <div className="space-y-1">
-                    {filteredPersonRelations.map(r => {
-                      const otherPnr = r.person_a === personPnr ? r.person_b : r.person_a;
-                      const otherPerson = allPersons.find(p => p.pnr === otherPnr);
-                      return (
-                        <div key={r.id} className="text-xs flex justify-between items-center py-1 border-b border-border/50">
-                          <span className="font-medium">
-                            {otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : otherPnr}
-                          </span>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span><Badge variant="outline" className="text-[10px] cursor-help">{r.relation_label || r.rel_typ}</Badge></span>
-                            </TooltipTrigger>
-                            <TooltipContent>{getRelationDescription(r.rel_typ) || r.relation_label || r.rel_typ}</TooltipContent>
-                          </Tooltip>
-                        </div>
-                      );
-                    })}
+                    {(() => {
+                      // Deduplicate: group by other person, collect unique relation descriptions
+                      const grouped = new Map<string, { otherPnr: string; labels: Set<string> }>();
+                      for (const r of filteredPersonRelations) {
+                        const otherPnr = r.person_a === personPnr ? r.person_b : r.person_a;
+                        if (!otherPnr) continue;
+                        if (!grouped.has(otherPnr)) {
+                          grouped.set(otherPnr, { otherPnr, labels: new Set() });
+                        }
+                        const desc = getRelationDescription(r.rel_typ) || r.relation_label || r.rel_typ;
+                        if (desc) grouped.get(otherPnr)!.labels.add(desc);
+                      }
+                      return Array.from(grouped.values()).map(({ otherPnr, labels }) => {
+                        const otherPerson = allPersons.find(p => p.pnr === otherPnr);
+                        const displayLabel = Array.from(labels).join(", ");
+                        return (
+                          <div key={otherPnr} className="text-xs flex justify-between items-center py-1 border-b border-border/50">
+                            <span className="font-medium">
+                              {otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : otherPnr}
+                            </span>
+                            <Badge variant="outline" className="text-[10px]">{displayLabel}</Badge>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               )}
