@@ -6,9 +6,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   loading: boolean;
+  gdprAccepted: boolean;
+  acceptGdpr: () => void;
   signIn: (password: string) => void;
   signOut: () => void;
-  // Keep these for compatibility but they're no-ops
   session: { user: { id: string } } | null;
   user: { id: string; email: string } | null;
   role: "admin" | "viewer" | null;
@@ -21,6 +22,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return sessionStorage.getItem("rs_authenticated") === "true";
   });
+  const [gdprAccepted, setGdprAccepted] = useState(() => {
+    return sessionStorage.getItem("rs_gdpr_accepted") === "true";
+  });
+
+  const acceptGdpr = () => {
+    sessionStorage.setItem("rs_gdpr_accepted", "true");
+    setGdprAccepted(true);
+  };
 
   const signIn = (password: string) => {
     if (password === CORRECT_PASSWORD) {
@@ -45,6 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated,
         isAdmin: true,
         loading: false,
+        gdprAccepted,
+        acceptGdpr,
         signIn,
         signOut,
         session: fakeSession,
