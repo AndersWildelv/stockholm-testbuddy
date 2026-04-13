@@ -578,6 +578,7 @@ export default function RelationsPage() {
               onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
               onNodeClick={handleNodeClick} onNodeDoubleClick={handleNodeDoubleClick}
               connectionLineType={ConnectionLineType.SmoothStep}
+              edgeTypes={{ tooltip: TooltipEdge }}
               fitView fitViewOptions={{ padding: 0.3 }}
               minZoom={0.3} maxZoom={2}
               proOptions={{ hideAttribution: true }}
