@@ -366,17 +366,14 @@ export default function RelationsPage() {
         source: r.person_a,
         target: r.person_b,
         label: r.relation_label || r.rel_typ,
-        type: "smoothstep",
+        type: "tooltip",
+        data: { relTyp: r.rel_typ },
         animated: false,
         style: {
           stroke: color,
           strokeWidth: 2,
           strokeDasharray: isMarriage ? "8 4" : undefined,
         },
-        labelStyle: { fontSize: "11px", fontWeight: "600", fill: color },
-        labelBgStyle: { fill: "hsl(var(--background))", fillOpacity: 0.9 },
-        labelBgPadding: [6, 4] as [number, number],
-        labelBgBorderRadius: 4,
         markerEnd: isMarriage ? undefined : { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
       };
     });
