@@ -703,7 +703,6 @@ export default function RelationsPage() {
                           "MO": "bg-violet-100 text-violet-800 border-violet-200",
                           "F": "bg-violet-100 text-violet-800 border-violet-200",
                           "SY": "bg-blue-100 text-blue-800 border-blue-200",
-                          "KU": "bg-cyan-100 text-cyan-800 border-cyan-200",
                           "P": "bg-pink-100 text-pink-800 border-pink-200",
                           "V": "bg-amber-100 text-amber-800 border-amber-200",
                           "VF": "bg-amber-100 text-amber-800 border-amber-200",
@@ -711,11 +710,27 @@ export default function RelationsPage() {
                         const firstType = Array.from(relTypes)[0] || "";
                         const colorClass = relationColors[firstType] || "bg-muted text-muted-foreground border-border";
                         const name = otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : null;
+                        const isExpanded = expandedRelations.has(otherPnr);
                         return (
                           <div
                             key={otherPnr}
-                            className={`rounded-lg border p-2.5 cursor-pointer hover:shadow-sm transition-shadow ${colorClass}`}
-                            onClick={() => navigate(`/relations?person=${otherPnr}`)}
+                            className={`rounded-lg border p-2.5 cursor-pointer hover:shadow-sm transition-all ${colorClass} ${!isExpanded ? "opacity-50" : ""}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedRelations(prev => {
+                                const next = new Set(prev);
+                                if (next.has(otherPnr)) {
+                                  next.delete(otherPnr);
+                                } else {
+                                  next.add(otherPnr);
+                                }
+                                return next;
+                              });
+                            }}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/relations?person=${otherPnr}`);
+                            }}
                           >
                             <div className="space-y-1">
                               <p className="text-xs font-semibold truncate">
