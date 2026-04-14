@@ -422,7 +422,7 @@ export default function RelationsPage() {
     }));
 
     const relationColors: Record<string, string> = {
-      "M": "#e11d48", "B": "#7c3aed", "SY": "#2563eb", "FA": "#7c3aed", "KU": "#0891b2",
+      "M": "#e11d48", "B": "#7c3aed", "SY": "#2563eb", "FA": "#7c3aed",
     };
 
     const newEdges: Edge[] = filtered.map((r: RelationData) => ({
@@ -616,7 +616,6 @@ export default function RelationsPage() {
                     { label: "Gift (M)", color: "#e11d48" },
                     { label: "Barn (B)", color: "#7c3aed" },
                     { label: "Syskon (SY)", color: "#2563eb" },
-                    { label: "Kusin (KU)", color: "#0891b2" },
                   ].map((item) => (
                     <span key={item.label} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-background/80 border">
                       <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
