@@ -150,6 +150,8 @@ export default function RelationsPage() {
   const [personRelations, setPersonRelations] = useState<RelationData[]>([]);
   // Direct relations for info panel (fetched per selected person)
   const [selectedPersonRelations, setSelectedPersonRelations] = useState<RelationData[]>([]);
+  // Expanded/collapsed relation cards
+  const [expandedRelations, setExpandedRelations] = useState<Set<string>>(new Set());
 
   const loadGraphForPerson = useCallback(async (focusPnr: string) => {
     setLoading(true);
