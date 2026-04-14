@@ -8,7 +8,6 @@ export const RELATION_TYPE_DESCRIPTIONS: Record<string, string> = {
   "V": "Vårdnadshavare",
   "VF": "Vårdnadshavare Far",
   "SY": "Syskon",
-  "KU": "Kusin",
 };
 
 export function getRelationDescription(code: string | null | undefined): string | null {

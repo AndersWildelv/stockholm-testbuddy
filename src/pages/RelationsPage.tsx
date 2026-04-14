@@ -87,7 +87,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { User, MapPin, GitFork, ArrowLeft, X, Search } from "lucide-react";
 
 // Excluded relation types
-const EXCLUDED_REL_TYPES = ["GR", "KO", "Granne", "Kollega", "granne", "kollega", "neighbor", "colleague", "Neighbor", "Colleague"];
+const EXCLUDED_REL_TYPES = ["GR", "KO", "KU", "Granne", "Kollega", "Kusin", "granne", "kollega", "kusin", "neighbor", "colleague", "Neighbor", "Colleague"];
 
 interface PersonData {
   pnr: string;
@@ -150,6 +150,8 @@ export default function RelationsPage() {
   const [personRelations, setPersonRelations] = useState<RelationData[]>([]);
   // Direct relations for info panel (fetched per selected person)
   const [selectedPersonRelations, setSelectedPersonRelations] = useState<RelationData[]>([]);
+  // Expanded/collapsed relation cards
+  const [expandedRelations, setExpandedRelations] = useState<Set<string>>(new Set());
 
   const loadGraphForPerson = useCallback(async (focusPnr: string) => {
     setLoading(true);
@@ -167,7 +169,7 @@ export default function RelationsPage() {
     const spouses: string[] = [];
     const siblings: string[] = [];
     const children: string[] = [];
-    const cousins: string[] = [];
+    const others: string[] = [];
     const categorized = new Set<string>();
 
     for (const r of filtered) {
@@ -182,7 +184,7 @@ export default function RelationsPage() {
       } else if (typ === "SY") {
         siblings.push(otherPnr);
       } else if (typ === "KU") {
-        cousins.push(otherPnr);
+        others.push(otherPnr);
       } else if (typ === "B" || typ === "FA") {
         if (label.includes("far") || label.includes("mor") || label.includes("förälder")) {
           parents.push(otherPnr);
@@ -197,13 +199,13 @@ export default function RelationsPage() {
           }
         }
       } else {
-        cousins.push(otherPnr);
+        others.push(otherPnr);
       }
       categorized.add(otherPnr);
     }
 
     // Collect all unique pnrs
-    const allPnrs = new Set<string>([focusPnr, ...parents, ...spouses, ...siblings, ...children, ...cousins]);
+    const allPnrs = new Set<string>([focusPnr, ...parents, ...spouses, ...siblings, ...children, ...others]);
 
     // Fetch 2nd degree: children of children (grandchildren) and parents of parents (grandparents)
     const secondaryPnrs = [...parents, ...children];
@@ -274,7 +276,15 @@ export default function RelationsPage() {
       const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
       if (!initEdgeMap.has(key)) initEdgeMap.set(key, r);
     }
-    setSelectedPersonRelations(Array.from(initEdgeMap.values()));
+    const initDeduped = Array.from(initEdgeMap.values());
+    setSelectedPersonRelations(initDeduped);
+    // Expand all relations by default
+    const initOtherPnrs = new Set<string>();
+    for (const r of initDeduped) {
+      const otherPnr = r.person_a === focusPnr ? r.person_b : r.person_a;
+      if (otherPnr) initOtherPnrs.add(otherPnr);
+    }
+    setExpandedRelations(initOtherPnrs);
 
     const relTypes = ([...new Set(uniqueRelations.map((r: RelationData) => r.rel_typ))] as string[]).filter(Boolean).sort();
     setAvailableRelTypes(relTypes);
@@ -303,11 +313,11 @@ export default function RelationsPage() {
     }
 
     // Layers from top to bottom:
-    // 0: grandparents, 1: parents, 2: focus+spouse+siblings+cousins, 3: children, 4: grandchildren
+    // 0: grandparents, 1: parents, 2: focus+spouse+siblings+others, 3: children, 4: grandchildren
     const layers: string[][] = [
       grandparents,
       parents,
-      [focusPnr, ...spouses, ...siblings, ...cousins],
+      [focusPnr, ...spouses, ...siblings, ...others],
       children,
       grandchildren,
     ];
@@ -353,7 +363,6 @@ export default function RelationsPage() {
       "B": "#7c3aed", "Barn": "#7c3aed",
       "SY": "#2563eb", "Syskon": "#2563eb",
       "FA": "#7c3aed", "Förälder": "#7c3aed",
-      "KU": "#0891b2", "Kusin": "#0891b2",
     };
 
     const newEdges: Edge[] = uniqueRelations.map((r: RelationData) => {
@@ -421,7 +430,7 @@ export default function RelationsPage() {
     }));
 
     const relationColors: Record<string, string> = {
-      "M": "#e11d48", "B": "#7c3aed", "SY": "#2563eb", "FA": "#7c3aed", "KU": "#0891b2",
+      "M": "#e11d48", "B": "#7c3aed", "SY": "#2563eb", "FA": "#7c3aed",
     };
 
     const newEdges: Edge[] = filtered.map((r: RelationData) => ({
@@ -467,7 +476,15 @@ export default function RelationsPage() {
         const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
         if (!edgeMap.has(key)) edgeMap.set(key, r);
       }
-      setSelectedPersonRelations(Array.from(edgeMap.values()));
+      const deduped = Array.from(edgeMap.values());
+      setSelectedPersonRelations(deduped);
+      // Expand all relations by default
+      const allOtherPnrs = new Set<string>();
+      for (const r of deduped) {
+        const otherPnr = r.person_a === node.id ? r.person_b : r.person_a;
+        if (otherPnr) allOtherPnrs.add(otherPnr);
+      }
+      setExpandedRelations(allOtherPnrs);
     }
   }, [allPersons]);
 
@@ -615,7 +632,6 @@ export default function RelationsPage() {
                     { label: "Gift (M)", color: "#e11d48" },
                     { label: "Barn (B)", color: "#7c3aed" },
                     { label: "Syskon (SY)", color: "#2563eb" },
-                    { label: "Kusin (KU)", color: "#0891b2" },
                   ].map((item) => (
                     <span key={item.label} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-background/80 border">
                       <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
@@ -703,7 +719,6 @@ export default function RelationsPage() {
                           "MO": "bg-violet-100 text-violet-800 border-violet-200",
                           "F": "bg-violet-100 text-violet-800 border-violet-200",
                           "SY": "bg-blue-100 text-blue-800 border-blue-200",
-                          "KU": "bg-cyan-100 text-cyan-800 border-cyan-200",
                           "P": "bg-pink-100 text-pink-800 border-pink-200",
                           "V": "bg-amber-100 text-amber-800 border-amber-200",
                           "VF": "bg-amber-100 text-amber-800 border-amber-200",
@@ -711,11 +726,27 @@ export default function RelationsPage() {
                         const firstType = Array.from(relTypes)[0] || "";
                         const colorClass = relationColors[firstType] || "bg-muted text-muted-foreground border-border";
                         const name = otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : null;
+                        const isExpanded = expandedRelations.has(otherPnr);
                         return (
                           <div
                             key={otherPnr}
-                            className={`rounded-lg border p-2.5 cursor-pointer hover:shadow-sm transition-shadow ${colorClass}`}
-                            onClick={() => navigate(`/relations?person=${otherPnr}`)}
+                            className={`rounded-lg border p-2.5 cursor-pointer hover:shadow-sm transition-all ${colorClass} ${!isExpanded ? "opacity-50" : ""}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedRelations(prev => {
+                                const next = new Set(prev);
+                                if (next.has(otherPnr)) {
+                                  next.delete(otherPnr);
+                                } else {
+                                  next.add(otherPnr);
+                                }
+                                return next;
+                              });
+                            }}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/relations?person=${otherPnr}`);
+                            }}
                           >
                             <div className="space-y-1">
                               <p className="text-xs font-semibold truncate">
