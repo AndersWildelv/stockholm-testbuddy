@@ -87,7 +87,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { User, MapPin, GitFork, ArrowLeft, X, Search } from "lucide-react";
 
 // Excluded relation types
-const EXCLUDED_REL_TYPES = ["GR", "KO", "Granne", "Kollega", "granne", "kollega", "neighbor", "colleague", "Neighbor", "Colleague"];
+const EXCLUDED_REL_TYPES = ["GR", "KO", "KU", "Granne", "Kollega", "Kusin", "granne", "kollega", "kusin", "neighbor", "colleague", "Neighbor", "Colleague"];
 
 interface PersonData {
   pnr: string;
