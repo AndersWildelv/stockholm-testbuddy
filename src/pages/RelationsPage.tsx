@@ -355,7 +355,6 @@ export default function RelationsPage() {
       "B": "#7c3aed", "Barn": "#7c3aed",
       "SY": "#2563eb", "Syskon": "#2563eb",
       "FA": "#7c3aed", "Förälder": "#7c3aed",
-      "KU": "#0891b2", "Kusin": "#0891b2",
     };
 
     const newEdges: Edge[] = uniqueRelations.map((r: RelationData) => {
