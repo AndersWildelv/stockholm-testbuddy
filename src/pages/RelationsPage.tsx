@@ -276,7 +276,15 @@ export default function RelationsPage() {
       const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
       if (!initEdgeMap.has(key)) initEdgeMap.set(key, r);
     }
-    setSelectedPersonRelations(Array.from(initEdgeMap.values()));
+    const initDeduped = Array.from(initEdgeMap.values());
+    setSelectedPersonRelations(initDeduped);
+    // Expand all relations by default
+    const initOtherPnrs = new Set<string>();
+    for (const r of initDeduped) {
+      const otherPnr = r.person_a === focusPnr ? r.person_b : r.person_a;
+      if (otherPnr) initOtherPnrs.add(otherPnr);
+    }
+    setExpandedRelations(initOtherPnrs);
 
     const relTypes = ([...new Set(uniqueRelations.map((r: RelationData) => r.rel_typ))] as string[]).filter(Boolean).sort();
     setAvailableRelTypes(relTypes);
