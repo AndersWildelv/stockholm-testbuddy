@@ -199,13 +199,13 @@ export default function RelationsPage() {
           }
         }
       } else {
-        cousins.push(otherPnr);
+        others.push(otherPnr);
       }
       categorized.add(otherPnr);
     }
 
     // Collect all unique pnrs
-    const allPnrs = new Set<string>([focusPnr, ...parents, ...spouses, ...siblings, ...children, ...cousins]);
+    const allPnrs = new Set<string>([focusPnr, ...parents, ...spouses, ...siblings, ...children, ...others]);
 
     // Fetch 2nd degree: children of children (grandchildren) and parents of parents (grandparents)
     const secondaryPnrs = [...parents, ...children];
@@ -305,11 +305,11 @@ export default function RelationsPage() {
     }
 
     // Layers from top to bottom:
-    // 0: grandparents, 1: parents, 2: focus+spouse+siblings+cousins, 3: children, 4: grandchildren
+    // 0: grandparents, 1: parents, 2: focus+spouse+siblings+others, 3: children, 4: grandchildren
     const layers: string[][] = [
       grandparents,
       parents,
-      [focusPnr, ...spouses, ...siblings, ...cousins],
+      [focusPnr, ...spouses, ...siblings, ...others],
       children,
       grandchildren,
     ];
