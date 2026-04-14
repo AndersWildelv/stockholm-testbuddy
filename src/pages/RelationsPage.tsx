@@ -468,7 +468,15 @@ export default function RelationsPage() {
         const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
         if (!edgeMap.has(key)) edgeMap.set(key, r);
       }
-      setSelectedPersonRelations(Array.from(edgeMap.values()));
+      const deduped = Array.from(edgeMap.values());
+      setSelectedPersonRelations(deduped);
+      // Expand all relations by default
+      const allOtherPnrs = new Set<string>();
+      for (const r of deduped) {
+        const otherPnr = r.person_a === node.id ? r.person_b : r.person_a;
+        if (otherPnr) allOtherPnrs.add(otherPnr);
+      }
+      setExpandedRelations(allOtherPnrs);
     }
   }, [allPersons]);
 
