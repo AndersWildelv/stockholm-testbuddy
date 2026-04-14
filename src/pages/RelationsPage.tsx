@@ -169,7 +169,7 @@ export default function RelationsPage() {
     const spouses: string[] = [];
     const siblings: string[] = [];
     const children: string[] = [];
-    const cousins: string[] = [];
+    const others: string[] = [];
     const categorized = new Set<string>();
 
     for (const r of filtered) {
