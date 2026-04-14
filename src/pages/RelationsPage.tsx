@@ -184,7 +184,7 @@ export default function RelationsPage() {
       } else if (typ === "SY") {
         siblings.push(otherPnr);
       } else if (typ === "KU") {
-        cousins.push(otherPnr);
+        others.push(otherPnr);
       } else if (typ === "B" || typ === "FA") {
         if (label.includes("far") || label.includes("mor") || label.includes("förälder")) {
           parents.push(otherPnr);
