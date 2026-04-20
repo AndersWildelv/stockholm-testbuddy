@@ -108,7 +108,7 @@ Filters kan innehålla:
 - "hsaid": ILIKE eller exakt
 - "has_hsaid": boolean (om personen har HSA-ID, dvs jobbar inom regionen)
 - "protected_identity": boolean (skyddad identitet / sekretessmarkerad)
-- "has_relation": array av relationstyper som personen MÅSTE ha, t.ex. ["M"] för gift, ["B"] för har barn, ["M","B"] för gift med barn
+- "has_relation": array av relationstyper som personen MÅSTE ha. För "gift" eller "partner" inkludera ALLTID både "M" och "P". Notera: has_relation behandlas som OR – matchar om personen har NÅGON av typerna i arrayen.
 - "not_has_relation": array av relationstyper personen INTE ska ha
 
 VIKTIGT:
@@ -119,10 +119,10 @@ VIKTIGT:
 - "vuxna" → min_age: 18
 - "pensionärer" → min_age: 65
 - "tonåringar" → min_age: 13, max_age: 19
-- "gift" eller "gifta" → has_relation: ["M"]
+- "gift" eller "gifta" eller "partner" eller "sambo" → has_relation: ["M","P"]
 - "med barn" eller "har barn" → has_relation: ["B"]  
-- "gift med barn" → has_relation: ["M", "B"]
-- "ogift" → not_has_relation: ["M"]
+- "gift med barn" eller "partner med barn" → has_relation: ["M","P","B"] (där M/P räknas som ett villkor)
+- "ogift" eller "singel" → not_has_relation: ["M","P"]
 - "bosatt i stockholm" → fb_postort: "STOCKHOLM" ELLER municipality: "80"
 - "bosatt i nacka" → municipality: "82" (använd kommunskoden)
 - "bosatt i solna" → municipality: "84"
