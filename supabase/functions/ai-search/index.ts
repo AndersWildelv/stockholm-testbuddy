@@ -213,21 +213,31 @@ VIKTIGT:
     let relationFilteredPnrs: string[] | null = null;
 
     if (filters.has_relation && Array.isArray(filters.has_relation) && filters.has_relation.length > 0) {
+      // Group M and P together (gift/partner = ekvivalent)
+      const groups: string[][] = [];
+      const partnerTypes = (filters.has_relation as string[]).filter((t) => t === "M" || t === "P");
+      const otherTypes = (filters.has_relation as string[]).filter((t) => t !== "M" && t !== "P");
+      if (partnerTypes.length > 0) groups.push(partnerTypes);
+      for (const t of otherTypes) groups.push([t]);
+
       const pnrSets: Set<string>[] = [];
-      for (const relType of filters.has_relation) {
-        const { data: rels, error: relError } = await supabase
-          .from("kp_person_relationships")
-          .select("person_a")
-          .eq("rel_typ", relType);
-        if (relError) {
-          console.error("Relation query error:", relError);
-          continue;
+      for (const group of groups) {
+        const groupSet = new Set<string>();
+        for (const relType of group) {
+          const { data: rels, error: relError } = await supabase
+            .from("kp_person_relationships")
+            .select("person_a")
+            .eq("rel_typ", relType);
+          if (relError) {
+            console.error("Relation query error:", relError);
+            continue;
+          }
+          (rels || []).forEach((r: { person_a: string }) => groupSet.add(r.person_a));
         }
-        const pnrs = new Set((rels || []).map((r: { person_a: string }) => r.person_a));
-        pnrSets.push(pnrs);
+        pnrSets.push(groupSet);
       }
       if (pnrSets.length > 0) {
-        relationFilteredPnrs = [...pnrSets[0]].filter(pnr => 
+        relationFilteredPnrs = [...pnrSets[0]].filter(pnr =>
           pnrSets.every(set => set.has(pnr))
         );
       }
