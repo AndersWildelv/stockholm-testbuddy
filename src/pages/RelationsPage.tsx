@@ -179,7 +179,7 @@ export default function RelationsPage() {
       const label = (r.relation_label || "").toLowerCase();
       const typ = (r.rel_typ || "").toUpperCase();
 
-      if (typ === "M") {
+      if (typ === "M" || typ === "P") {
         spouses.push(otherPnr);
       } else if (typ === "SY") {
         siblings.push(otherPnr);
@@ -360,6 +360,7 @@ export default function RelationsPage() {
 
     const relationColors: Record<string, string> = {
       "M": "#e11d48", "Gift med": "#e11d48",
+      "P": "#e11d48", "Partner": "#e11d48",
       "B": "#7c3aed", "Barn": "#7c3aed",
       "SY": "#2563eb", "Syskon": "#2563eb",
       "FA": "#7c3aed", "Förälder": "#7c3aed",
@@ -367,7 +368,7 @@ export default function RelationsPage() {
 
     const newEdges: Edge[] = uniqueRelations.map((r: RelationData) => {
       const color = relationColors[r.rel_typ] || "#888";
-      const isMarriage = r.rel_typ === "M";
+      const isMarriage = r.rel_typ === "M" || r.rel_typ === "P";
       return {
         id: String(r.id),
         source: r.person_a,
@@ -430,7 +431,7 @@ export default function RelationsPage() {
     }));
 
     const relationColors: Record<string, string> = {
-      "M": "#e11d48", "B": "#7c3aed", "SY": "#2563eb", "FA": "#7c3aed",
+      "M": "#e11d48", "P": "#e11d48", "B": "#7c3aed", "SY": "#2563eb", "FA": "#7c3aed",
     };
 
     const newEdges: Edge[] = filtered.map((r: RelationData) => ({
@@ -438,7 +439,7 @@ export default function RelationsPage() {
       source: r.person_a,
       target: r.person_b,
       label: r.relation_label || r.rel_typ,
-      animated: r.rel_typ === "M",
+      animated: r.rel_typ === "M" || r.rel_typ === "P",
       style: { stroke: relationColors[r.rel_typ] || "#888", strokeWidth: 2 },
       labelStyle: { fontSize: "11px", fontWeight: "600", fill: relationColors[r.rel_typ] || "#888" },
       labelBgStyle: { fill: "hsl(var(--background))", fillOpacity: 0.9 },
@@ -629,7 +630,7 @@ export default function RelationsPage() {
               <Panel position="top-right">
                 <div className="flex gap-2 flex-wrap text-xs">
                   {[
-                    { label: "Gift (M)", color: "#e11d48" },
+                    { label: "Gift / Partner", color: "#e11d48" },
                     { label: "Barn (B)", color: "#7c3aed" },
                     { label: "Syskon (SY)", color: "#2563eb" },
                   ].map((item) => (
