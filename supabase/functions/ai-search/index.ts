@@ -108,7 +108,7 @@ Filters kan innehålla:
 - "hsaid": ILIKE eller exakt
 - "has_hsaid": boolean (om personen har HSA-ID, dvs jobbar inom regionen)
 - "protected_identity": boolean (skyddad identitet / sekretessmarkerad)
-- "has_relation": array av relationstyper som personen MÅSTE ha, t.ex. ["M"] för gift, ["B"] för har barn, ["M","B"] för gift med barn
+- "has_relation": array av relationstyper som personen MÅSTE ha. För "gift" eller "partner" inkludera ALLTID både "M" och "P". Notera: has_relation behandlas som OR – matchar om personen har NÅGON av typerna i arrayen.
 - "not_has_relation": array av relationstyper personen INTE ska ha
 
 VIKTIGT:
@@ -119,10 +119,10 @@ VIKTIGT:
 - "vuxna" → min_age: 18
 - "pensionärer" → min_age: 65
 - "tonåringar" → min_age: 13, max_age: 19
-- "gift" eller "gifta" → has_relation: ["M"]
+- "gift" eller "gifta" eller "partner" eller "sambo" → has_relation: ["M","P"]
 - "med barn" eller "har barn" → has_relation: ["B"]  
-- "gift med barn" → has_relation: ["M", "B"]
-- "ogift" → not_has_relation: ["M"]
+- "gift med barn" eller "partner med barn" → has_relation: ["M","P","B"] (där M/P räknas som ett villkor)
+- "ogift" eller "singel" → not_has_relation: ["M","P"]
 - "bosatt i stockholm" → fb_postort: "STOCKHOLM" ELLER municipality: "80"
 - "bosatt i nacka" → municipality: "82" (använd kommunskoden)
 - "bosatt i solna" → municipality: "84"
@@ -213,21 +213,31 @@ VIKTIGT:
     let relationFilteredPnrs: string[] | null = null;
 
     if (filters.has_relation && Array.isArray(filters.has_relation) && filters.has_relation.length > 0) {
+      // Group M and P together (gift/partner = ekvivalent)
+      const groups: string[][] = [];
+      const partnerTypes = (filters.has_relation as string[]).filter((t) => t === "M" || t === "P");
+      const otherTypes = (filters.has_relation as string[]).filter((t) => t !== "M" && t !== "P");
+      if (partnerTypes.length > 0) groups.push(partnerTypes);
+      for (const t of otherTypes) groups.push([t]);
+
       const pnrSets: Set<string>[] = [];
-      for (const relType of filters.has_relation) {
-        const { data: rels, error: relError } = await supabase
-          .from("kp_person_relationships")
-          .select("person_a")
-          .eq("rel_typ", relType);
-        if (relError) {
-          console.error("Relation query error:", relError);
-          continue;
+      for (const group of groups) {
+        const groupSet = new Set<string>();
+        for (const relType of group) {
+          const { data: rels, error: relError } = await supabase
+            .from("kp_person_relationships")
+            .select("person_a")
+            .eq("rel_typ", relType);
+          if (relError) {
+            console.error("Relation query error:", relError);
+            continue;
+          }
+          (rels || []).forEach((r: { person_a: string }) => groupSet.add(r.person_a));
         }
-        const pnrs = new Set((rels || []).map((r: { person_a: string }) => r.person_a));
-        pnrSets.push(pnrs);
+        pnrSets.push(groupSet);
       }
       if (pnrSets.length > 0) {
-        relationFilteredPnrs = [...pnrSets[0]].filter(pnr => 
+        relationFilteredPnrs = [...pnrSets[0]].filter(pnr =>
           pnrSets.every(set => set.has(pnr))
         );
       }
