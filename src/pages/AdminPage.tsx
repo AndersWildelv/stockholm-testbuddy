@@ -1,8 +1,68 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Users, FileText, ClipboardList } from "lucide-react";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Shield, Users, FileText, ClipboardList, Trash2, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+
+const CONFIRM_PHRASE = "RENSA";
 
 export default function AdminPage() {
+  const [confirmText, setConfirmText] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
+  const [lastResult, setLastResult] = useState<string | null>(null);
+
+  const handleReset = async () => {
+    setIsResetting(true);
+    setLastResult(null);
+    const tables = ["bookings", "relations", "audit_log", "import_batches", "persons"] as const;
+    const results: string[] = [];
+    try {
+      for (const table of tables) {
+        const { error, count } = await supabase
+          .from(table)
+          // @ts-expect-error - generic delete on union of tables
+          .delete({ count: "exact" })
+          .not("id", "is", null);
+        if (error) {
+          results.push(`❌ ${table}: ${error.message}`);
+        } else {
+          results.push(`✓ ${table}: ${count ?? 0} rader borttagna`);
+        }
+      }
+      // Reset session-local state
+      sessionStorage.removeItem("rs_gdpr_accepted");
+      setLastResult(results.join("\n"));
+      toast({
+        title: "Databasen rensad",
+        description: "Alla testpersoner, relationer och bokningar har tagits bort.",
+      });
+    } catch (e: any) {
+      toast({
+        title: "Fel vid rensning",
+        description: e?.message ?? "Okänt fel",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
+      setConfirmText("");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -20,6 +80,9 @@ export default function AdminPage() {
           </TabsTrigger>
           <TabsTrigger value="audit" className="gap-2">
             <ClipboardList className="h-4 w-4" /> Audit-logg
+          </TabsTrigger>
+          <TabsTrigger value="danger" className="gap-2 data-[state=active]:text-destructive">
+            <AlertTriangle className="h-4 w-4" /> Farozon
           </TabsTrigger>
         </TabsList>
 
@@ -54,6 +117,82 @@ export default function AdminPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">Loggade händelser (importer, bokningar, sökningar) visas här.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="danger">
+          <Card className="border-destructive/40">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" /> Rensa databasen
+              </CardTitle>
+              <CardDescription>
+                Tar permanent bort alla testpersoner, relationer, bokningar, importbatcher och
+                audit-logg. Applikationen återställs till ett tomt utgångsläge. Denna åtgärd kan
+                inte ångras.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                <p className="font-medium text-destructive mb-2">Följande tabeller kommer att tömmas:</p>
+                <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                  <li>persons (alla testpersoner)</li>
+                  <li>relations (alla relationer)</li>
+                  <li>bookings (alla bokningar)</li>
+                  <li>import_batches (importhistorik)</li>
+                  <li>audit_log (audit-händelser)</li>
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm">
+                  Skriv <span className="font-mono font-bold text-destructive">{CONFIRM_PHRASE}</span> för att bekräfta
+                </Label>
+                <Input
+                  id="confirm"
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder={CONFIRM_PHRASE}
+                  className="max-w-xs"
+                />
+              </div>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    disabled={confirmText !== CONFIRM_PHRASE || isResetting}
+                    className="gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {isResetting ? "Rensar..." : "Rensa databasen och nollställ"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Är du helt säker?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      All data kommer att raderas permanent. Detta går inte att ångra.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleReset}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Ja, rensa allt
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              {lastResult && (
+                <pre className="mt-4 rounded-md bg-muted p-3 text-xs whitespace-pre-wrap font-mono">
+                  {lastResult}
+                </pre>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
