@@ -14,6 +14,109 @@ export type Database = {
   }
   public: {
     Tables: {
+      actor_organization: {
+        Row: {
+          actor_id: string | null
+          created_stamp: string | null
+          id: number
+          last_updated_stamp: string | null
+          organization_id: string | null
+          pnr: string
+          updated_date: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_stamp?: string | null
+          id?: number
+          last_updated_stamp?: string | null
+          organization_id?: string | null
+          pnr: string
+          updated_date?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_stamp?: string | null
+          id?: number
+          last_updated_stamp?: string | null
+          organization_id?: string | null
+          pnr?: string
+          updated_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "actor_organization_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["pnr"]
+          },
+        ]
+      }
+      afb_relation: {
+        Row: {
+          afb_rel_enamn: string | null
+          afb_rel_fnamn: string | null
+          afb_rel_fodtid: string | null
+          afb_rel_mnamn: string | null
+          created_by: string | null
+          created_time: string | null
+          id: number
+          pnr: string
+          rel_avr_datum: string | null
+          rel_avr_orsak: string | null
+          rel_typ: string
+          status: string | null
+          updated_by: string | null
+          updated_time: string | null
+          vard_datum: string | null
+          vard_slut_datum: string | null
+        }
+        Insert: {
+          afb_rel_enamn?: string | null
+          afb_rel_fnamn?: string | null
+          afb_rel_fodtid?: string | null
+          afb_rel_mnamn?: string | null
+          created_by?: string | null
+          created_time?: string | null
+          id?: number
+          pnr: string
+          rel_avr_datum?: string | null
+          rel_avr_orsak?: string | null
+          rel_typ: string
+          status?: string | null
+          updated_by?: string | null
+          updated_time?: string | null
+          vard_datum?: string | null
+          vard_slut_datum?: string | null
+        }
+        Update: {
+          afb_rel_enamn?: string | null
+          afb_rel_fnamn?: string | null
+          afb_rel_fodtid?: string | null
+          afb_rel_mnamn?: string | null
+          created_by?: string | null
+          created_time?: string | null
+          id?: number
+          pnr?: string
+          rel_avr_datum?: string | null
+          rel_avr_orsak?: string | null
+          rel_typ?: string
+          status?: string | null
+          updated_by?: string | null
+          updated_time?: string | null
+          vard_datum?: string | null
+          vard_slut_datum?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "afb_relation_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["pnr"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -83,6 +186,191 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_info: {
+        Row: {
+          contact_info_id: string
+          created_stamp: string | null
+          last_updated_stamp: string | null
+          pnr: string
+        }
+        Insert: {
+          contact_info_id: string
+          created_stamp?: string | null
+          last_updated_stamp?: string | null
+          pnr: string
+        }
+        Update: {
+          contact_info_id?: string
+          created_stamp?: string | null
+          last_updated_stamp?: string | null
+          pnr?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_info_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["pnr"]
+          },
+        ]
+      }
+      contact_person: {
+        Row: {
+          actor_id: string | null
+          contact_person_id: string
+          contact_relationship_type: string | null
+          created_stamp: string | null
+          given_name: string | null
+          last_updated_stamp: string | null
+          main_contact_address_id: string | null
+          middle_name: string | null
+          organization_id: string | null
+          pnr: string
+          priority_order: string | null
+          surname: string | null
+          updated_date: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          contact_person_id: string
+          contact_relationship_type?: string | null
+          created_stamp?: string | null
+          given_name?: string | null
+          last_updated_stamp?: string | null
+          main_contact_address_id?: string | null
+          middle_name?: string | null
+          organization_id?: string | null
+          pnr: string
+          priority_order?: string | null
+          surname?: string | null
+          updated_date?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          contact_person_id?: string
+          contact_relationship_type?: string | null
+          created_stamp?: string | null
+          given_name?: string | null
+          last_updated_stamp?: string | null
+          main_contact_address_id?: string | null
+          middle_name?: string | null
+          organization_id?: string | null
+          pnr?: string
+          priority_order?: string | null
+          surname?: string | null
+          updated_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_person_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["pnr"]
+          },
+        ]
+      }
+      fastighet_adress: {
+        Row: {
+          adress: string | null
+          created_by: string | null
+          created_time: string | null
+          fastighet: string | null
+          id: number
+          lagenhet: string | null
+          pnr: string
+          updated_by: string | null
+          updated_time: string | null
+        }
+        Insert: {
+          adress?: string | null
+          created_by?: string | null
+          created_time?: string | null
+          fastighet?: string | null
+          id?: number
+          lagenhet?: string | null
+          pnr: string
+          updated_by?: string | null
+          updated_time?: string | null
+        }
+        Update: {
+          adress?: string | null
+          created_by?: string | null
+          created_time?: string | null
+          fastighet?: string | null
+          id?: number
+          lagenhet?: string | null
+          pnr?: string
+          updated_by?: string | null
+          updated_time?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fastighet_adress_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["pnr"]
+          },
+        ]
+      }
+      fb_relation: {
+        Row: {
+          created_by: string | null
+          created_time: string | null
+          fb_rel_pnr: string
+          id: number
+          pnr: string
+          rel_avr_datum: string | null
+          rel_avr_orsak: string | null
+          rel_typ: string
+          status: string | null
+          updated_by: string | null
+          updated_time: string | null
+          vard_datum: string | null
+          vard_slut_datum: string | null
+        }
+        Insert: {
+          created_by?: string | null
+          created_time?: string | null
+          fb_rel_pnr: string
+          id?: number
+          pnr: string
+          rel_avr_datum?: string | null
+          rel_avr_orsak?: string | null
+          rel_typ: string
+          status?: string | null
+          updated_by?: string | null
+          updated_time?: string | null
+          vard_datum?: string | null
+          vard_slut_datum?: string | null
+        }
+        Update: {
+          created_by?: string | null
+          created_time?: string | null
+          fb_rel_pnr?: string
+          id?: number
+          pnr?: string
+          rel_avr_datum?: string | null
+          rel_avr_orsak?: string | null
+          rel_typ?: string
+          status?: string | null
+          updated_by?: string | null
+          updated_time?: string | null
+          vard_datum?: string | null
+          vard_slut_datum?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fb_relation_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["pnr"]
+          },
+        ]
+      }
       import_batches: {
         Row: {
           created_at: string
@@ -119,6 +407,272 @@ export type Database = {
           total_rows?: number | null
           valid_rows?: number | null
           validation_report?: Json | null
+        }
+        Relationships: []
+      }
+      notification_sync: {
+        Row: {
+          created_by: string | null
+          created_time: string | null
+          id: number
+          modification_time: string | null
+          notification_date: string | null
+          notification_type: string | null
+          pnr: string
+          record_id: string | null
+          syncronization_time: string | null
+          total_record: string | null
+          updated_by: string | null
+          updated_time: string | null
+        }
+        Insert: {
+          created_by?: string | null
+          created_time?: string | null
+          id?: number
+          modification_time?: string | null
+          notification_date?: string | null
+          notification_type?: string | null
+          pnr: string
+          record_id?: string | null
+          syncronization_time?: string | null
+          total_record?: string | null
+          updated_by?: string | null
+          updated_time?: string | null
+        }
+        Update: {
+          created_by?: string | null
+          created_time?: string | null
+          id?: number
+          modification_time?: string | null
+          notification_date?: string | null
+          notification_type?: string | null
+          pnr?: string
+          record_id?: string | null
+          syncronization_time?: string | null
+          total_record?: string | null
+          updated_by?: string | null
+          updated_time?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_sync_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["pnr"]
+          },
+        ]
+      }
+      person: {
+        Row: {
+          antraffad_dod: string | null
+          avi_namn: string | null
+          avr_datum: string | null
+          avr_orsak: string | null
+          civ: string | null
+          civ_datum: string | null
+          created_by: string | null
+          created_time: string | null
+          distriktskod: string | null
+          eff_datum: string | null
+          enamn: string | null
+          enamn_styrkt: string | null
+          fast_beteckning: string | null
+          fb_avi_postnr: string | null
+          fb_avi_postort: string | null
+          fb_avi_utdel_adr: string | null
+          fb_co_adr: string | null
+          fb_datum: string | null
+          fb_postnr: string | null
+          fb_postort: string | null
+          fb_utdel_adr1: string | null
+          fb_utdel_adr2: string | null
+          fiktivt_nr: string | null
+          fnamn: string | null
+          fnamn_styrkt: string | null
+          fod_datum: string | null
+          fod_fors: string | null
+          fod_lan: string | null
+          fod_land: string | null
+          fod_ort: string | null
+          fod_ort_styrkt: string | null
+          fors: string | null
+          hanv_pnr: string | null
+          icke_terr_fors: string | null
+          identity_level: string | null
+          identity_level_date: string | null
+          imported_at: string
+          inv_datum: string | null
+          kommun: string | null
+          kon: string | null
+          lan: string | null
+          mnamn: string | null
+          mnamn_styrkt: string | null
+          opt_out_pappersavisering: string | null
+          pnr: string
+          pnr_typ: string | null
+          revision: string | null
+          sekr_mark: string | null
+          skyddad_fb: string | null
+          sp_avi_postnr: string | null
+          sp_avi_postort: string | null
+          sp_avi_utdel_adr: string | null
+          sp_co_adr: string | null
+          sp_postnr: string | null
+          sp_postort: string | null
+          sp_utdel_adr1: string | null
+          sp_utdel_adr2: string | null
+          tilltalskod: string | null
+          updated_by: string | null
+          updated_time: string | null
+          uppehallsratt: string | null
+          utl_co_adr: string | null
+          utl_datum: string | null
+          utl_datum_rostratt: string | null
+          utl_land: string | null
+          utl_utdel_adr1: string | null
+          utl_utdel_adr2: string | null
+          version: string | null
+        }
+        Insert: {
+          antraffad_dod?: string | null
+          avi_namn?: string | null
+          avr_datum?: string | null
+          avr_orsak?: string | null
+          civ?: string | null
+          civ_datum?: string | null
+          created_by?: string | null
+          created_time?: string | null
+          distriktskod?: string | null
+          eff_datum?: string | null
+          enamn?: string | null
+          enamn_styrkt?: string | null
+          fast_beteckning?: string | null
+          fb_avi_postnr?: string | null
+          fb_avi_postort?: string | null
+          fb_avi_utdel_adr?: string | null
+          fb_co_adr?: string | null
+          fb_datum?: string | null
+          fb_postnr?: string | null
+          fb_postort?: string | null
+          fb_utdel_adr1?: string | null
+          fb_utdel_adr2?: string | null
+          fiktivt_nr?: string | null
+          fnamn?: string | null
+          fnamn_styrkt?: string | null
+          fod_datum?: string | null
+          fod_fors?: string | null
+          fod_lan?: string | null
+          fod_land?: string | null
+          fod_ort?: string | null
+          fod_ort_styrkt?: string | null
+          fors?: string | null
+          hanv_pnr?: string | null
+          icke_terr_fors?: string | null
+          identity_level?: string | null
+          identity_level_date?: string | null
+          imported_at?: string
+          inv_datum?: string | null
+          kommun?: string | null
+          kon?: string | null
+          lan?: string | null
+          mnamn?: string | null
+          mnamn_styrkt?: string | null
+          opt_out_pappersavisering?: string | null
+          pnr: string
+          pnr_typ?: string | null
+          revision?: string | null
+          sekr_mark?: string | null
+          skyddad_fb?: string | null
+          sp_avi_postnr?: string | null
+          sp_avi_postort?: string | null
+          sp_avi_utdel_adr?: string | null
+          sp_co_adr?: string | null
+          sp_postnr?: string | null
+          sp_postort?: string | null
+          sp_utdel_adr1?: string | null
+          sp_utdel_adr2?: string | null
+          tilltalskod?: string | null
+          updated_by?: string | null
+          updated_time?: string | null
+          uppehallsratt?: string | null
+          utl_co_adr?: string | null
+          utl_datum?: string | null
+          utl_datum_rostratt?: string | null
+          utl_land?: string | null
+          utl_utdel_adr1?: string | null
+          utl_utdel_adr2?: string | null
+          version?: string | null
+        }
+        Update: {
+          antraffad_dod?: string | null
+          avi_namn?: string | null
+          avr_datum?: string | null
+          avr_orsak?: string | null
+          civ?: string | null
+          civ_datum?: string | null
+          created_by?: string | null
+          created_time?: string | null
+          distriktskod?: string | null
+          eff_datum?: string | null
+          enamn?: string | null
+          enamn_styrkt?: string | null
+          fast_beteckning?: string | null
+          fb_avi_postnr?: string | null
+          fb_avi_postort?: string | null
+          fb_avi_utdel_adr?: string | null
+          fb_co_adr?: string | null
+          fb_datum?: string | null
+          fb_postnr?: string | null
+          fb_postort?: string | null
+          fb_utdel_adr1?: string | null
+          fb_utdel_adr2?: string | null
+          fiktivt_nr?: string | null
+          fnamn?: string | null
+          fnamn_styrkt?: string | null
+          fod_datum?: string | null
+          fod_fors?: string | null
+          fod_lan?: string | null
+          fod_land?: string | null
+          fod_ort?: string | null
+          fod_ort_styrkt?: string | null
+          fors?: string | null
+          hanv_pnr?: string | null
+          icke_terr_fors?: string | null
+          identity_level?: string | null
+          identity_level_date?: string | null
+          imported_at?: string
+          inv_datum?: string | null
+          kommun?: string | null
+          kon?: string | null
+          lan?: string | null
+          mnamn?: string | null
+          mnamn_styrkt?: string | null
+          opt_out_pappersavisering?: string | null
+          pnr?: string
+          pnr_typ?: string | null
+          revision?: string | null
+          sekr_mark?: string | null
+          skyddad_fb?: string | null
+          sp_avi_postnr?: string | null
+          sp_avi_postort?: string | null
+          sp_avi_utdel_adr?: string | null
+          sp_co_adr?: string | null
+          sp_postnr?: string | null
+          sp_postort?: string | null
+          sp_utdel_adr1?: string | null
+          sp_utdel_adr2?: string | null
+          tilltalskod?: string | null
+          updated_by?: string | null
+          updated_time?: string | null
+          uppehallsratt?: string | null
+          utl_co_adr?: string | null
+          utl_datum?: string | null
+          utl_datum_rostratt?: string | null
+          utl_land?: string | null
+          utl_utdel_adr1?: string | null
+          utl_utdel_adr2?: string | null
+          version?: string | null
         }
         Relationships: []
       }
@@ -523,6 +1077,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      reset_import_tables: { Args: never; Returns: undefined }
       reset_test_data: { Args: never; Returns: Json }
     }
     Enums: {
