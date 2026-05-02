@@ -13,6 +13,7 @@ import BookingsPage from "./pages/BookingsPage";
 import RelationsPage from "./pages/RelationsPage";
 
 import AdminPage from "./pages/AdminPage";
+import ImportPage from "./pages/ImportPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
