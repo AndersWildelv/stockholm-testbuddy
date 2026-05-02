@@ -454,10 +454,32 @@ export default function ImportPage() {
       }
       let sent = 0;
 
+      // Giltiga personnummer (det vi precis lagt i person-tabellen).
+      // Alla underordnade tabeller har FK pnr -> person(pnr), så vi måste
+      // filtrera bort barn-rader vars pnr saknas i person-setet (eller är null).
+      const validPnrs: Set<string> = new Set(parsed.person.keys());
+      const skipped: Record<string, number> = {};
+
       for (const table of TABLE_ORDER) {
         setStep(table);
         const map: Map<string, Record<string, unknown>> = (parsed as any)[table];
-        const rowsArr = Array.from(map.values());
+        let rowsArr = Array.from(map.values());
+
+        if (table !== "person") {
+          const before = rowsArr.length;
+          rowsArr = rowsArr.filter((r) => {
+            const p = r.pnr;
+            return typeof p === "string" && p.length > 0 && validPnrs.has(p);
+          });
+          const dropped = before - rowsArr.length;
+          if (dropped > 0) {
+            skipped[table] = dropped;
+            console.warn(
+              `[import] ${table}: hoppade över ${dropped} rader vars pnr saknas i person-tabellen eller var null.`
+            );
+          }
+        }
+
         totals[table] = rowsArr.length;
 
         for (let i = 0; i < rowsArr.length; i += CHUNK_SIZE) {
@@ -466,6 +488,10 @@ export default function ImportPage() {
           sent += chunk.length;
           setProgress(Math.min(100, Math.round((sent / Math.max(1, totalToSend)) * 100)));
         }
+      }
+
+      if (Object.keys(skipped).length > 0) {
+        console.warn("[import] Översikt över skippade rader:", skipped);
       }
 
       // Hämta riktiga counts från servern
