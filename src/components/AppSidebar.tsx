@@ -21,7 +21,7 @@ const navItems = [
 ];
 
 const adminItems = [
-  
+  { to: "/import", label: "Importera testdata", icon: Upload },
   { to: "/admin", label: "Administration", icon: Shield },
 ];
 
