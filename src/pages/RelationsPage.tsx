@@ -221,27 +221,37 @@ export default function RelationsPage() {
     const parents = new Set<string>();
     const children = new Set<string>();
     const partners = new Set<string>();
-    const guardiansOnly = new Set<string>(); // V (guardian, not biological)
-    const parentEdgeTypes = new Map<string, string>(); // childPnr->parentPnr label key
+    const biologicalParents = new Set<string>(); // MO/FA/F/B (not V/VF)
+    const guardianFlags = new Set<string>(); // V/VF candidates
 
-    const PARENT_TYPES = ["MO", "FA", "F", "VF", "V"];
+    const BIO_PARENT_TYPES = ["MO", "FA", "F"];
+    const GUARDIAN_TYPES = ["V", "VF"];
+    const PARENT_TYPES = [...BIO_PARENT_TYPES, ...GUARDIAN_TYPES];
     for (const r of focusRelations) {
       const t = r.rel_typ.toUpperCase();
       const a = r.person_a, b = r.person_b;
       if (a === focusPnr) {
         if (PARENT_TYPES.includes(t)) {
           parents.add(b);
-          if (t === "V") guardiansOnly.add(b);
+          if (BIO_PARENT_TYPES.includes(t)) biologicalParents.add(b);
+          else guardianFlags.add(b);
         } else if (t === "B") children.add(b);
         else if (t === "M" || t === "P") partners.add(b);
       } else if (b === focusPnr) {
-        if (PARENT_TYPES.includes(t)) {
-          children.add(a);
-          if (t === "V") guardiansOnly.add(a);
-        } else if (t === "B") parents.add(a);
+        if (BIO_PARENT_TYPES.includes(t)) {
+          parents.add(a);
+          biologicalParents.add(a);
+        } else if (GUARDIAN_TYPES.includes(t)) {
+          // (X, focus, VF) means X is guardian of focus -> X is parent
+          parents.add(a);
+          guardianFlags.add(a);
+        } else if (t === "B") parents.add(a); // (X, focus, B) means focus is child of X
         else if (t === "M" || t === "P") partners.add(a);
       }
     }
+    // A guardian-only flag means: never appears as MO/FA/F → mark as non-bio
+    const guardiansOnly = new Set<string>();
+    for (const g of guardianFlags) if (!biologicalParents.has(g)) guardiansOnly.add(g);
 
     // Step 2: get grandparents, grandchildren, sibling-detection via shared parents
     // Need: parents-of-parents, parents-of-children's children, and parents-of-anyone-who-shares-our-parents
