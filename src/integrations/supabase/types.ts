@@ -523,6 +523,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      reset_test_data: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "viewer"
