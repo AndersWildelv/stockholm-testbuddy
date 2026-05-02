@@ -47,6 +47,27 @@ export type Database = {
             foreignKeyName: "actor_organization_pnr_fkey"
             columns: ["pnr"]
             isOneToOne: false
+            referencedRelation: "kp_persons"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "actor_organization_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_person_directory"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "actor_organization_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_region_stockholm_booked"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "actor_organization_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
             referencedRelation: "person"
             referencedColumns: ["pnr"]
           },
@@ -108,6 +129,27 @@ export type Database = {
           vard_slut_datum?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "afb_relation_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_persons"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "afb_relation_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_person_directory"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "afb_relation_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_region_stockholm_booked"
+            referencedColumns: ["pnr"]
+          },
           {
             foreignKeyName: "afb_relation_pnr_fkey"
             columns: ["pnr"]
@@ -210,6 +252,27 @@ export type Database = {
             foreignKeyName: "contact_info_pnr_fkey"
             columns: ["pnr"]
             isOneToOne: false
+            referencedRelation: "kp_persons"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "contact_info_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_person_directory"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "contact_info_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_region_stockholm_booked"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "contact_info_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
             referencedRelation: "person"
             referencedColumns: ["pnr"]
           },
@@ -266,6 +329,27 @@ export type Database = {
             foreignKeyName: "contact_person_pnr_fkey"
             columns: ["pnr"]
             isOneToOne: false
+            referencedRelation: "kp_persons"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "contact_person_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_person_directory"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "contact_person_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_region_stockholm_booked"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "contact_person_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
             referencedRelation: "person"
             referencedColumns: ["pnr"]
           },
@@ -306,6 +390,27 @@ export type Database = {
           updated_time?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fastighet_adress_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_persons"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "fastighet_adress_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_person_directory"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "fastighet_adress_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_region_stockholm_booked"
+            referencedColumns: ["pnr"]
+          },
           {
             foreignKeyName: "fastighet_adress_pnr_fkey"
             columns: ["pnr"]
@@ -362,6 +467,27 @@ export type Database = {
           vard_slut_datum?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fb_relation_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_persons"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "fb_relation_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_person_directory"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "fb_relation_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_region_stockholm_booked"
+            referencedColumns: ["pnr"]
+          },
           {
             foreignKeyName: "fb_relation_pnr_fkey"
             columns: ["pnr"]
@@ -454,6 +580,27 @@ export type Database = {
           updated_time?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "notification_sync_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_persons"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "notification_sync_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_person_directory"
+            referencedColumns: ["pnr"]
+          },
+          {
+            foreignKeyName: "notification_sync_pnr_fkey"
+            columns: ["pnr"]
+            isOneToOne: false
+            referencedRelation: "kp_v_region_stockholm_booked"
+            referencedColumns: ["pnr"]
+          },
           {
             foreignKeyName: "notification_sync_pnr_fkey"
             columns: ["pnr"]
@@ -858,28 +1005,6 @@ export type Database = {
           start_date: string | null
           status: string | null
         }
-        Insert: {
-          created_at?: string | null
-          end_date?: string | null
-          id?: number | null
-          person_a?: string | null
-          person_b?: string | null
-          rel_typ?: string | null
-          relation_label?: string | null
-          start_date?: string | null
-          status?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          end_date?: string | null
-          id?: number | null
-          person_a?: string | null
-          person_b?: string | null
-          rel_typ?: string | null
-          relation_label?: string | null
-          start_date?: string | null
-          status?: string | null
-        }
         Relationships: []
       }
       kp_persons: {
@@ -903,8 +1028,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          belongs_to_region_stockholm?: boolean | null
-          booked_to_region_stockholm?: boolean | null
+          belongs_to_region_stockholm?: never
+          booked_to_region_stockholm?: never
           county?: string | null
           created_at?: string | null
           fb_address1?: string | null
@@ -913,17 +1038,17 @@ export type Database = {
           fb_postort?: string | null
           first_name?: string | null
           gender?: string | null
-          hsaid?: string | null
+          hsaid?: never
           last_name?: string | null
           middle_name?: string | null
           municipality?: string | null
           pnr?: string | null
-          protected_identity?: boolean | null
+          protected_identity?: never
           updated_at?: string | null
         }
         Update: {
-          belongs_to_region_stockholm?: boolean | null
-          booked_to_region_stockholm?: boolean | null
+          belongs_to_region_stockholm?: never
+          booked_to_region_stockholm?: never
           county?: string | null
           created_at?: string | null
           fb_address1?: string | null
@@ -932,12 +1057,12 @@ export type Database = {
           fb_postort?: string | null
           first_name?: string | null
           gender?: string | null
-          hsaid?: string | null
+          hsaid?: never
           last_name?: string | null
           middle_name?: string | null
           municipality?: string | null
           pnr?: string | null
-          protected_identity?: boolean | null
+          protected_identity?: never
           updated_at?: string | null
         }
         Relationships: []
@@ -976,8 +1101,8 @@ export type Database = {
           protected_identity: boolean | null
         }
         Insert: {
-          belongs_to_region_stockholm?: boolean | null
-          booked_to_region_stockholm?: boolean | null
+          belongs_to_region_stockholm?: never
+          booked_to_region_stockholm?: never
           county?: string | null
           fb_address1?: string | null
           fb_address2?: string | null
@@ -985,16 +1110,16 @@ export type Database = {
           fb_postort?: string | null
           first_name?: string | null
           gender?: string | null
-          hsaid?: string | null
+          hsaid?: never
           last_name?: string | null
           middle_name?: string | null
           municipality?: string | null
           pnr?: string | null
-          protected_identity?: boolean | null
+          protected_identity?: never
         }
         Update: {
-          belongs_to_region_stockholm?: boolean | null
-          booked_to_region_stockholm?: boolean | null
+          belongs_to_region_stockholm?: never
+          booked_to_region_stockholm?: never
           county?: string | null
           fb_address1?: string | null
           fb_address2?: string | null
@@ -1002,12 +1127,12 @@ export type Database = {
           fb_postort?: string | null
           first_name?: string | null
           gender?: string | null
-          hsaid?: string | null
+          hsaid?: never
           last_name?: string | null
           middle_name?: string | null
           municipality?: string | null
           pnr?: string | null
-          protected_identity?: boolean | null
+          protected_identity?: never
         }
         Relationships: []
       }
@@ -1031,8 +1156,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          belongs_to_region_stockholm?: boolean | null
-          booked_to_region_stockholm?: boolean | null
+          belongs_to_region_stockholm?: never
+          booked_to_region_stockholm?: never
           county?: string | null
           created_at?: string | null
           fb_address1?: string | null
@@ -1041,7 +1166,7 @@ export type Database = {
           fb_postort?: string | null
           first_name?: string | null
           gender?: string | null
-          hsaid?: string | null
+          hsaid?: never
           last_name?: string | null
           middle_name?: string | null
           municipality?: string | null
@@ -1049,8 +1174,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          belongs_to_region_stockholm?: boolean | null
-          booked_to_region_stockholm?: boolean | null
+          belongs_to_region_stockholm?: never
+          booked_to_region_stockholm?: never
           county?: string | null
           created_at?: string | null
           fb_address1?: string | null
@@ -1059,7 +1184,7 @@ export type Database = {
           fb_postort?: string | null
           first_name?: string | null
           gender?: string | null
-          hsaid?: string | null
+          hsaid?: never
           last_name?: string | null
           middle_name?: string | null
           municipality?: string | null
