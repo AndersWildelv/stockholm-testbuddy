@@ -144,8 +144,10 @@ export default function AdminPage() {
               <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
                 <p className="font-medium text-destructive mb-2">Följande tabeller kommer att tömmas:</p>
                 <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                  <li>persons (alla testpersoner)</li>
-                  <li>relations (alla relationer)</li>
+                  <li>kp_persons (alla testpersoner)</li>
+                  <li>kp_person_relationships (alla relationer)</li>
+                  <li>persons (legacy-tabell)</li>
+                  <li>relations (legacy-tabell)</li>
                   <li>bookings (alla bokningar)</li>
                   <li>audit_log (audit-händelser)</li>
                 </ul>
