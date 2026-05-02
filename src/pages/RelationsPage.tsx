@@ -97,8 +97,14 @@ function genderSymbol(g: string | null | undefined) {
   return "";
 }
 
+function clean(s: string | null | undefined): string {
+  if (!s) return "";
+  // Strip surrounding slashes that PU service uses for unverified names
+  return s.replace(/^\/+|\/+$/g, "").trim();
+}
+
 function fullName(p: { first_name?: string | null; middle_name?: string | null; last_name?: string | null }) {
-  return [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ").trim();
+  return [clean(p.first_name), clean(p.middle_name), clean(p.last_name)].filter(Boolean).join(" ").trim();
 }
 
 // ───────── Custom Node ─────────
