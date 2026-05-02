@@ -29,31 +29,22 @@ export default function AdminPage() {
   const handleReset = async () => {
     setIsResetting(true);
     setLastResult(null);
-    // Tabeller med id-kolumn (uuid) respektive pnr-PK (kp_persons)
-    const tables: { name: string; pk: string }[] = [
-      { name: "bookings", pk: "id" },
-      { name: "relations", pk: "id" },
-      { name: "audit_log", pk: "id" },
-      { name: "kp_person_relationships", pk: "id" },
-      { name: "persons", pk: "id" },
-      { name: "kp_persons", pk: "pnr" },
-    ];
-    const results: string[] = [];
     try {
-      for (const { name, pk } of tables) {
-        const { error, count } = await (supabase as any)
-          .from(name)
-          .delete({ count: "exact" })
-          .not(pk, "is", null);
-        if (error) {
-          results.push(`❌ ${name}: ${error.message}`);
-        } else {
-          results.push(`✓ ${name}: ${count ?? 0} rader borttagna`);
-        }
+      const { data, error } = await (supabase as any).rpc("reset_test_data");
+      if (error) {
+        toast({
+          title: "Fel vid rensning",
+          description: error.message,
+          variant: "destructive",
+        });
+        setLastResult(`❌ ${error.message}`);
+        return;
       }
-      // Reset session-local state
+      const lines = Object.entries(data ?? {}).map(
+        ([table, count]) => `✓ ${table}: ${count} rader borttagna`
+      );
+      setLastResult(lines.join("\n"));
       sessionStorage.removeItem("rs_gdpr_accepted");
-      setLastResult(results.join("\n"));
       toast({
         title: "Databasen rensad",
         description: "Alla testpersoner, relationer och bokningar har tagits bort.",
