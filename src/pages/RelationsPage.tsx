@@ -530,7 +530,7 @@ export default function RelationsPage() {
 
     // Grandparents row: center above parents (split by which parent if known)
     const gpList = Array.from(grandparents.keys());
-    layoutRow(gpList, focusX, Y_GP, "grandparent");
+    layoutRow(gpList, focusCenterX, Y_GP, "grandparent");
     gpList.forEach(gp => {
       grandparents.get(gp)!.forEach(par => {
         newEdges.push({
@@ -547,8 +547,8 @@ export default function RelationsPage() {
     // Children row: centered between focus and (first) partner
     const childrenArr = Array.from(children);
     const childCenter = partnersArr.length > 0
-      ? (focusX + (focusX + (NODE_W + H_GAP))) / 2
-      : focusX;
+      ? (focusCenterX + (focusCenterX + (NODE_W + H_GAP))) / 2
+      : focusCenterX;
     layoutRow(childrenArr, childCenter, Y_CHILD, "child");
     childrenArr.forEach(ch => {
       newEdges.push({
@@ -583,7 +583,7 @@ export default function RelationsPage() {
       const t = ar.rel_typ.toUpperCase();
       const isParent = PARENT_TYPES.includes(t);
       const y = isParent ? Y_PARENT : (t === "B" ? Y_CHILD : Y_FOCUS);
-      const x = focusX + (NODE_W + H_GAP) * (partnersArr.length + 2 + i);
+      const x = focusCenterX + (NODE_W + H_GAP) * (partnersArr.length + 2 + i);
       const name = [ar.afb_rel_fnamn, ar.afb_rel_mnamn, ar.afb_rel_enamn].filter(Boolean).join(" ").trim() || "Okänd";
       const pnd: PersonNodeData = {
         name,
