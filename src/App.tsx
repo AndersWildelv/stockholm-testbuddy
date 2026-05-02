@@ -13,6 +13,7 @@ import BookingsPage from "./pages/BookingsPage";
 import RelationsPage from "./pages/RelationsPage";
 
 import AdminPage from "./pages/AdminPage";
+import ImportPage from "./pages/ImportPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ function AuthGate() {
         <Route path="/relations" element={<RelationsPage />} />
         
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/import" element={<ImportPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>
