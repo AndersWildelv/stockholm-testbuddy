@@ -29,7 +29,7 @@ export default function AdminPage() {
   const handleReset = async () => {
     setIsResetting(true);
     setLastResult(null);
-    const tables = ["bookings", "relations", "audit_log", "import_batches", "persons"] as const;
+    const tables = ["bookings", "relations", "audit_log", "persons"] as const;
     const results: string[] = [];
     try {
       for (const table of tables) {
