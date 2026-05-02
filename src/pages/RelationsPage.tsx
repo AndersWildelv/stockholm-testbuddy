@@ -436,9 +436,9 @@ export default function RelationsPage() {
       };
     }
 
-    // Helper: lay out a row centered at centerX
+    // Helper: lay out a row centered at centerX (centerX = midpoint of the row)
     function layoutRow(pnrs: string[], centerX: number, y: number, variant: PersonNodeData["variant"]) {
-      const totalW = pnrs.length * NODE_W + (pnrs.length - 1) * H_GAP;
+      const totalW = pnrs.length * NODE_W + Math.max(0, pnrs.length - 1) * H_GAP;
       const startX = centerX - totalW / 2;
       pnrs.forEach((pnr, i) => {
         if (newNodes.find(n => n.id === pnr)) return;
@@ -452,28 +452,31 @@ export default function RelationsPage() {
     const Y_CHILD = V_GAP * 3;
     const Y_GC = V_GAP * 4;
 
-    // Focus row: siblings (left) - focus - partners (right)
+    // focusCenterX = X coordinate of the CENTER of the focus node
+    const focusCenterX = 0;
+    const focusLeftX = focusCenterX - NODE_W / 2;
+
     const siblings = Array.from(siblingMap.keys());
     const partnersArr = Array.from(partners);
-    const focusRowOrder = [...siblings, focusPnr, ...partnersArr];
-    const centerXBase = 0;
-    // We center on focus, so compute positions explicitly:
-    const focusX = 0;
-    // place focus at focusX, then siblings left, partners right
-    newNodes.push(makeNode(focusPnr, focusX, Y_FOCUS, "focus"));
+
+    // Place focus
+    newNodes.push(makeNode(focusPnr, focusLeftX, Y_FOCUS, "focus"));
+
+    // Siblings to the left of focus
     siblings.forEach((s, i) => {
-      const x = focusX - (NODE_W + H_GAP) * (siblings.length - i);
+      const x = focusLeftX - (NODE_W + H_GAP) * (siblings.length - i);
       newNodes.push(makeNode(s, x, Y_FOCUS, "sibling"));
     });
+
+    // Partners to the right of focus
     partnersArr.forEach((p, i) => {
-      const x = focusX + (NODE_W + H_GAP) * (i + 1);
+      const x = focusLeftX + (NODE_W + H_GAP) * (i + 1);
       newNodes.push(makeNode(p, x, Y_FOCUS, "partner"));
       newEdges.push({
         id: `partner-${focusPnr}-${p}`,
         source: focusPnr,
         target: p,
         type: "straight",
-        sourceHandle: undefined,
         style: { stroke: "#e11d48", strokeWidth: 3 },
         label: "❤",
         labelStyle: { fontSize: 14 },
@@ -481,9 +484,9 @@ export default function RelationsPage() {
       });
     });
 
-    // Parents row: center above focus
+    // Parents row: centered above focus
     const parentsArr = Array.from(parents);
-    layoutRow(parentsArr, focusX, Y_PARENT, "parent");
+    layoutRow(parentsArr, focusCenterX, Y_PARENT, "parent");
     // edges parent -> focus + parent -> siblings
     parentsArr.forEach(par => {
       const isGuardian = guardiansOnly.has(par);
