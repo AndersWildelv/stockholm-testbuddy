@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   ReactFlow,
@@ -11,10 +11,9 @@ import {
   ConnectionLineType,
   MarkerType,
   Panel,
-  EdgeLabelRenderer,
-  getBezierPath,
-  getSmoothStepPath,
-  type EdgeProps,
+  Handle,
+  Position,
+  type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
@@ -23,71 +22,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
 import { RELATION_TYPE_DESCRIPTIONS, getRelationDescription } from "@/lib/relationTypes";
-
-function TooltipEdge({
-  id, sourceX, sourceY, targetX, targetY,
-  sourcePosition, targetPosition, style, markerEnd, data, label,
-}: EdgeProps) {
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
-    sourceX, sourceY, sourcePosition,
-    targetX, targetY, targetPosition,
-  });
-
-  const relTyp = (data?.relTyp as string) || "";
-  const description = RELATION_TYPE_DESCRIPTIONS[relTyp] || (label as string) || relTyp;
-
-  return (
-    <>
-      <path id={id} style={style} className="react-flow__edge-path" d={edgePath} markerEnd={markerEnd as string} />
-      <EdgeLabelRenderer>
-        <div
-          style={{
-            position: "absolute",
-            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-            pointerEvents: "all",
-          }}
-        >
-          <TooltipProvider delayDuration={100}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    color: (style?.stroke as string) || "#888",
-                    background: "hsl(var(--background))",
-                    padding: "2px 6px",
-                    borderRadius: "4px",
-                    cursor: "default",
-                    opacity: 0.95,
-                  }}
-                >
-                  {(label as string) || relTyp}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[200px]">
-                <p className="text-xs font-medium">{description}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      </EdgeLabelRenderer>
-    </>
-  );
-}
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { User, MapPin, GitFork, ArrowLeft, X, Search } from "lucide-react";
+import { User, MapPin, GitFork, ArrowLeft, X, ChevronRight } from "lucide-react";
 
-// Excluded relation types
-const EXCLUDED_REL_TYPES = ["GR", "KO", "KU", "Granne", "Kollega", "Kusin", "granne", "kollega", "kusin", "neighbor", "colleague", "Neighbor", "Colleague"];
+const EXCLUDED_REL_TYPES = ["GR", "KO", "KU"];
 
 interface PersonData {
   pnr: string;
@@ -105,6 +47,13 @@ interface PersonData {
   hsaid: string | null;
 }
 
+interface PersonExtra {
+  pnr: string;
+  fod_datum: string | null;
+  antraffad_dod: string | null;
+  civ: string | null;
+}
+
 interface RelationData {
   id: number;
   person_a: string;
@@ -116,18 +65,123 @@ interface RelationData {
   end_date: string | null;
 }
 
-function isExcludedRelation(r: RelationData): boolean {
-  if (EXCLUDED_REL_TYPES.some(t => r.rel_typ?.toLowerCase() === t.toLowerCase())) return true;
-  if (r.relation_label && EXCLUDED_REL_TYPES.some(t => r.relation_label!.toLowerCase().includes(t.toLowerCase()))) return true;
-  return false;
+interface AfbRelationData {
+  id: number;
+  pnr: string;
+  rel_typ: string;
+  afb_rel_fnamn: string | null;
+  afb_rel_mnamn: string | null;
+  afb_rel_enamn: string | null;
+  afb_rel_fodtid: string | null;
+  rel_avr_datum: string | null;
 }
 
-function formatGender(g: string | null): string {
-  if (g === "M") return "Man";
-  if (g === "K") return "Kvinna";
-  return g || "–";
+function isExcluded(t: string | null | undefined) {
+  if (!t) return false;
+  return EXCLUDED_REL_TYPES.includes(t.toUpperCase());
 }
 
+function birthYearFromPnr(pnr: string | null | undefined): string | null {
+  if (!pnr) return null;
+  const m = pnr.match(/^(18|19|20)\d{2}/);
+  return m ? pnr.slice(0, 4) : null;
+}
+
+function birthYearFrom(pnr: string | null | undefined, fodDatum: string | null | undefined): string | null {
+  return birthYearFromPnr(pnr) ?? (fodDatum ? fodDatum.slice(0, 4) : null);
+}
+
+function genderSymbol(g: string | null | undefined) {
+  if (g === "K") return "♀";
+  if (g === "M") return "♂";
+  return "";
+}
+
+function fullName(p: { first_name?: string | null; middle_name?: string | null; last_name?: string | null }) {
+  return [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ").trim();
+}
+
+// ───────── Custom Node ─────────
+type PersonNodeData = {
+  name: string;
+  pnr: string;
+  gender: string | null;
+  birthYear: string | null;
+  deceased: boolean;
+  isFocus: boolean;
+  variant: "focus" | "parent" | "grandparent" | "sibling" | "partner" | "child" | "grandchild" | "missing-fb" | "missing-afb";
+  tooltip?: string;
+  onClick?: () => void;
+};
+
+function PersonNode({ data }: NodeProps) {
+  const d = data as PersonNodeData;
+  const isMissing = d.variant === "missing-fb" || d.variant === "missing-afb";
+
+  const baseStyle: React.CSSProperties = {
+    minWidth: 170,
+    padding: "8px 12px",
+    borderRadius: 10,
+    background: "hsl(var(--card))",
+    color: "hsl(var(--card-foreground))",
+    border: "1.5px solid hsl(var(--border))",
+    fontSize: 13,
+    cursor: "pointer",
+    textAlign: "center",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+  };
+
+  if (d.isFocus) {
+    Object.assign(baseStyle, {
+      border: "3px solid hsl(var(--primary))",
+      background: "hsl(var(--primary) / 0.08)",
+      boxShadow: "0 4px 16px hsl(var(--primary) / 0.25)",
+    });
+  } else if (d.variant === "partner") {
+    baseStyle.borderColor = "#e11d48";
+  } else if (isMissing) {
+    Object.assign(baseStyle, {
+      borderStyle: "dashed",
+      opacity: 0.6,
+      background: "hsl(var(--muted))",
+    });
+  }
+
+  const inner = (
+    <div style={baseStyle} onClick={d.onClick}>
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <div style={{ fontWeight: d.isFocus ? 700 : 600, lineHeight: 1.2 }}>
+        {d.name}
+        {d.deceased && <span style={{ marginLeft: 4 }}>†</span>}
+      </div>
+      <div style={{ fontSize: 10, opacity: 0.65, fontFamily: "monospace", marginTop: 2 }}>
+        {d.pnr}
+      </div>
+      <div style={{ fontSize: 10, opacity: 0.7, marginTop: 2 }}>
+        {[genderSymbol(d.gender), d.birthYear].filter(Boolean).join(" · ")}
+        {isMissing && (
+          <span style={{ fontStyle: "italic" }}>
+            {" "}
+            {d.variant === "missing-fb" ? "(ej i datasetet)" : "(utan svenskt pnr)"}
+          </span>
+        )}
+      </div>
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+    </div>
+  );
+
+  if (!d.tooltip) return inner;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipContent className="max-w-xs whitespace-pre-line">{d.tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+const nodeTypes = { person: PersonNode };
+
+// ───────── Page ─────────
 export default function RelationsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -137,661 +191,666 @@ export default function RelationsPage() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonData | null>(null);
   const [allPersons, setAllPersons] = useState<PersonData[]>([]);
-  const [allRelations, setAllRelations] = useState<RelationData[]>([]);
+  const [allExtras, setAllExtras] = useState<Map<string, PersonExtra>>(new Map());
+  const [selectedPersonRelations, setSelectedPersonRelations] = useState<RelationData[]>([]);
+  const [breadcrumb, setBreadcrumb] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Search between two persons
-  const [searchPnr1, setSearchPnr1] = useState("");
-  const [searchPnr2, setSearchPnr2] = useState("");
-  const [relTypeFilter, setRelTypeFilter] = useState<string>("all");
-  const [availableRelTypes, setAvailableRelTypes] = useState<string[]>([]);
+  const personByPnr = useMemo(() => new Map(allPersons.map(p => [p.pnr, p])), [allPersons]);
 
-  // Relation list for selected person
-  const [personRelations, setPersonRelations] = useState<RelationData[]>([]);
-  // Direct relations for info panel (fetched per selected person)
-  const [selectedPersonRelations, setSelectedPersonRelations] = useState<RelationData[]>([]);
-  // Expanded/collapsed relation cards
-  const [expandedRelations, setExpandedRelations] = useState<Set<string>>(new Set());
-
-  const loadGraphForPerson = useCallback(async (focusPnr: string) => {
+  const buildTree = useCallback(async (focusPnr: string) => {
     setLoading(true);
 
-    // Fetch all relations involving this person (excluding neighbors/colleagues)
-    const { data: relations } = await supabase
+    // Step 1: relations of focus
+    const { data: focusRels } = await supabase
       .from("kp_person_relationships" as any)
       .select("*")
       .or(`person_a.eq.${focusPnr},person_b.eq.${focusPnr}`);
+    const focusRelations = ((focusRels as any[]) ?? []).filter(r => !isExcluded(r.rel_typ)) as RelationData[];
 
-    const filtered = ((relations as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
+    // Categorize. Convention: rel_typ describes person_b's role TO person_a.
+    // person_a -[MO/FA/F/V/VF]-> person_b means person_b is parent of person_a
+    // person_a -[B]-> person_b means person_b is child of person_a
+    // person_a -[M/P]-> person_b means partners
+    const parents = new Set<string>();
+    const children = new Set<string>();
+    const partners = new Set<string>();
+    const guardiansOnly = new Set<string>(); // V (guardian, not biological)
+    const parentEdgeTypes = new Map<string, string>(); // childPnr->parentPnr label key
 
-    // Categorize each related person relative to the focus person
-    const parents: string[] = [];
-    const spouses: string[] = [];
-    const siblings: string[] = [];
-    const children: string[] = [];
-    const others: string[] = [];
-    const categorized = new Set<string>();
-
-    for (const r of filtered) {
-      const otherPnr = r.person_a === focusPnr ? r.person_b : r.person_a;
-      if (categorized.has(otherPnr)) continue;
-
-      const label = (r.relation_label || "").toLowerCase();
-      const typ = (r.rel_typ || "").toUpperCase();
-
-      if (typ === "M" || typ === "P") {
-        spouses.push(otherPnr);
-      } else if (typ === "SY") {
-        siblings.push(otherPnr);
-      } else if (typ === "KU") {
-        others.push(otherPnr);
-      } else if (typ === "B" || typ === "FA") {
-        if (label.includes("far") || label.includes("mor") || label.includes("förälder")) {
-          parents.push(otherPnr);
-        } else if (label.includes("barn")) {
-          children.push(otherPnr);
-        } else {
-          // Fallback heuristic: for type B, if focus is person_a the other is likely child
-          if (r.person_a === focusPnr && typ === "B") {
-            children.push(otherPnr);
-          } else {
-            parents.push(otherPnr);
-          }
-        }
-      } else {
-        others.push(otherPnr);
+    const PARENT_TYPES = ["MO", "FA", "F", "VF", "V"];
+    for (const r of focusRelations) {
+      const t = r.rel_typ.toUpperCase();
+      const a = r.person_a, b = r.person_b;
+      if (a === focusPnr) {
+        if (PARENT_TYPES.includes(t)) {
+          parents.add(b);
+          if (t === "V") guardiansOnly.add(b);
+        } else if (t === "B") children.add(b);
+        else if (t === "M" || t === "P") partners.add(b);
+      } else if (b === focusPnr) {
+        if (PARENT_TYPES.includes(t)) {
+          children.add(a);
+          if (t === "V") guardiansOnly.add(a);
+        } else if (t === "B") parents.add(a);
+        else if (t === "M" || t === "P") partners.add(a);
       }
-      categorized.add(otherPnr);
     }
 
-    // Collect all unique pnrs
-    const allPnrs = new Set<string>([focusPnr, ...parents, ...spouses, ...siblings, ...children, ...others]);
-
-    // Fetch 2nd degree: children of children (grandchildren) and parents of parents (grandparents)
-    const secondaryPnrs = [...parents, ...children];
-    let secondDegRelations: RelationData[] = [];
-    if (secondaryPnrs.length > 0) {
-      const { data: secondDeg } = await supabase
+    // Step 2: get grandparents, grandchildren, sibling-detection via shared parents
+    // Need: parents-of-parents, parents-of-children's children, and parents-of-anyone-who-shares-our-parents
+    const tier2Pnrs = [...parents, ...children];
+    let tier2Rels: RelationData[] = [];
+    if (tier2Pnrs.length) {
+      const { data: t2 } = await supabase
         .from("kp_person_relationships" as any)
         .select("*")
-        .or(
-          secondaryPnrs.map(p => `person_a.eq.${p}`).join(",") + "," +
-          secondaryPnrs.map(p => `person_b.eq.${p}`).join(",")
-        );
-      secondDegRelations = ((secondDeg as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
+        .or([
+          ...tier2Pnrs.map(p => `person_a.eq.${p}`),
+          ...tier2Pnrs.map(p => `person_b.eq.${p}`),
+        ].join(","));
+      tier2Rels = ((t2 as any[]) ?? []).filter(r => !isExcluded(r.rel_typ)) as RelationData[];
     }
 
-    // Grandparents: parents of parents
-    const grandparents: string[] = [];
-    for (const parentPnr of parents) {
-      for (const r of secondDegRelations) {
-        if (r.person_a !== parentPnr && r.person_b !== parentPnr) continue;
-        const otherPnr = r.person_a === parentPnr ? r.person_b : r.person_a;
-        if (allPnrs.has(otherPnr)) continue;
-        const label = (r.relation_label || "").toLowerCase();
-        const typ = (r.rel_typ || "").toUpperCase();
-        if (typ === "B" || typ === "FA") {
-          if (label.includes("far") || label.includes("mor") || label.includes("förälder")) {
-            grandparents.push(otherPnr);
-            allPnrs.add(otherPnr);
-          }
+    const grandparents = new Map<string, Set<string>>(); // grandparentPnr -> set of parentPnrs
+    const grandchildren = new Map<string, Set<string>>(); // grandchildPnr -> set of childPnrs
+    for (const r of tier2Rels) {
+      const t = r.rel_typ.toUpperCase();
+      const a = r.person_a, b = r.person_b;
+      // grandparents of focus: parents of "parents"
+      for (const par of parents) {
+        if (a === par && PARENT_TYPES.includes(t)) {
+          if (!grandparents.has(b)) grandparents.set(b, new Set());
+          grandparents.get(b)!.add(par);
+        } else if (b === par && t === "B") {
+          if (!grandparents.has(a)) grandparents.set(a, new Set());
+          grandparents.get(a)!.add(par);
+        }
+      }
+      // grandchildren of focus: children of "children"
+      for (const ch of children) {
+        if (a === ch && t === "B") {
+          if (!grandchildren.has(b)) grandchildren.set(b, new Set());
+          grandchildren.get(b)!.add(ch);
+        } else if (b === ch && PARENT_TYPES.includes(t)) {
+          if (!grandchildren.has(a)) grandchildren.set(a, new Set());
+          grandchildren.get(a)!.add(ch);
         }
       }
     }
 
-    // Grandchildren: children of children
-    const grandchildren: string[] = [];
-    for (const childPnr of children) {
-      for (const r of secondDegRelations) {
-        if (r.person_a !== childPnr && r.person_b !== childPnr) continue;
-        const otherPnr = r.person_a === childPnr ? r.person_b : r.person_a;
-        if (allPnrs.has(otherPnr)) continue;
-        const label = (r.relation_label || "").toLowerCase();
-        const typ = (r.rel_typ || "").toUpperCase();
-        if (typ === "B" || typ === "FA") {
-          if (label.includes("barn")) {
-            grandchildren.push(otherPnr);
-            allPnrs.add(otherPnr);
-          }
-        }
+    // Siblings: anyone who shares ≥1 parent with focus, excluding focus/partners/parents/children
+    // We need everyone whose parent ∈ parents.
+    const siblingMap = new Map<string, Set<string>>(); // siblingPnr -> shared parent set
+    let siblingCandidateRels: RelationData[] = [];
+    if (parents.size > 0) {
+      const parentList = Array.from(parents);
+      const { data: sc } = await supabase
+        .from("kp_person_relationships" as any)
+        .select("*")
+        .or([
+          ...parentList.map(p => `person_a.eq.${p}`),
+          ...parentList.map(p => `person_b.eq.${p}`),
+        ].join(","));
+      siblingCandidateRels = ((sc as any[]) ?? []).filter(r => !isExcluded(r.rel_typ)) as RelationData[];
+    }
+    for (const r of siblingCandidateRels) {
+      const t = r.rel_typ.toUpperCase();
+      const a = r.person_a, b = r.person_b;
+      // if parent->child via B
+      if (parents.has(a) && t === "B" && b !== focusPnr) {
+        if (!siblingMap.has(b)) siblingMap.set(b, new Set());
+        siblingMap.get(b)!.add(a);
+      }
+      // if child->parent via MO/FA/F (V/VF excluded for biological siblings)
+      if (parents.has(b) && ["MO", "FA", "F"].includes(t) && a !== focusPnr) {
+        if (!siblingMap.has(a)) siblingMap.set(a, new Set());
+        siblingMap.get(a)!.add(b);
+      }
+    }
+    // Remove false positives
+    for (const k of Array.from(siblingMap.keys())) {
+      if (parents.has(k) || children.has(k) || partners.has(k) || k === focusPnr) {
+        siblingMap.delete(k);
       }
     }
 
-    // Deduplicate edges: keep one edge per unique pair
-    const allRels = [...filtered, ...secondDegRelations];
-    const edgeMap = new Map<string, RelationData>();
-    for (const r of allRels) {
-      const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
-      if (!edgeMap.has(key)) edgeMap.set(key, r);
-    }
-    const uniqueRelations = Array.from(edgeMap.values()).filter(r => {
-      return allPnrs.has(r.person_a) && allPnrs.has(r.person_b);
-    });
+    // Step 3: AfbRelations (foreign relatives without pnr)
+    const { data: afbData } = await supabase
+      .from("afb_relation" as any)
+      .select("id, pnr, rel_typ, afb_rel_fnamn, afb_rel_mnamn, afb_rel_enamn, afb_rel_fodtid, rel_avr_datum")
+      .eq("pnr", focusPnr);
+    const afbRels = ((afbData as any[]) ?? []).filter(r => !isExcluded(r.rel_typ)) as AfbRelationData[];
 
-    setAllRelations(uniqueRelations);
-    setPersonRelations(filtered);
-    // Also set selectedPersonRelations for the initial focus person
-    const initEdgeMap = new Map<string, RelationData>();
-    for (const r of filtered) {
-      const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
-      if (!initEdgeMap.has(key)) initEdgeMap.set(key, r);
-    }
-    const initDeduped = Array.from(initEdgeMap.values());
-    setSelectedPersonRelations(initDeduped);
-    // Expand all relations by default
-    const initOtherPnrs = new Set<string>();
-    for (const r of initDeduped) {
-      const otherPnr = r.person_a === focusPnr ? r.person_b : r.person_a;
-      if (otherPnr) initOtherPnrs.add(otherPnr);
-    }
-    setExpandedRelations(initOtherPnrs);
-
-    const relTypes = ([...new Set(uniqueRelations.map((r: RelationData) => r.rel_typ))] as string[]).filter(Boolean).sort();
-    setAvailableRelTypes(relTypes);
-
-    // Fetch persons
+    // Step 4: fetch person info for ALL pnrs we want to display
+    const allPnrs = new Set<string>([
+      focusPnr,
+      ...parents, ...children, ...partners,
+      ...siblingMap.keys(),
+      ...grandparents.keys(),
+      ...grandchildren.keys(),
+    ]);
     const { data: persons } = await supabase
       .from("kp_persons" as any)
       .select("pnr, first_name, middle_name, last_name, gender, municipality, county, fb_postnr, fb_postort, fb_address1, fb_address2, booked_to_region_stockholm, hsaid")
       .in("pnr", Array.from(allPnrs));
+    const personArr = (persons as any[] ?? []) as PersonData[];
+    setAllPersons(personArr);
+    const pMap = new Map(personArr.map(p => [p.pnr, p]));
 
-    if (!persons) { setLoading(false); return; }
-    setAllPersons(persons as unknown as PersonData[]);
-    const personMap = new Map((persons as unknown as PersonData[]).map(p => [p.pnr, p]));
-    const focusPerson = personMap.get(focusPnr);
-    if (focusPerson) setSelectedPerson(focusPerson);
+    // Fetch extras (deceased, fod_datum, civ) for tooltip + indicators
+    const { data: extras } = await supabase
+      .from("person" as any)
+      .select("pnr, fod_datum, antraffad_dod, civ")
+      .in("pnr", Array.from(allPnrs));
+    const extrasMap = new Map(((extras as any[]) ?? []).map(e => [e.pnr, e as PersonExtra]));
+    setAllExtras(extrasMap);
 
-    // ── Tree Layout ──
-    const nodeW = 160;
-    const nodeH = 50;
-    const hGap = 40;
-    const layerGap = 160;
+    const focusP = pMap.get(focusPnr);
+    if (focusP) setSelectedPerson(focusP);
+    setSelectedPersonRelations(focusRelations);
 
-    function getLabel(pnr: string) {
-      const p = personMap.get(pnr);
-      return p ? `${p.first_name ?? ""} ${p.middle_name ? p.middle_name + " " : ""}${p.last_name ?? ""}` : pnr;
-    }
-
-    // Layers from top to bottom:
-    // 0: grandparents, 1: parents, 2: focus+spouse+siblings+others, 3: children, 4: grandchildren
-    const layers: string[][] = [
-      grandparents,
-      parents,
-      [focusPnr, ...spouses, ...siblings, ...others],
-      children,
-      grandchildren,
-    ];
-
-    // Find widest layer for centering
-    const layerWidths = layers.map(l => l.length * nodeW + Math.max(0, l.length - 1) * hGap);
-    const maxWidth = Math.max(...layerWidths, 400);
-    const centerX = maxWidth / 2;
+    // ─── LAYOUT ───
+    const NODE_W = 180;
+    const H_GAP = 30;
+    const V_GAP = 140;
 
     const newNodes: Node[] = [];
-    layers.forEach((layer, li) => {
-      if (layer.length === 0) return;
-      const totalW = layer.length * nodeW + (layer.length - 1) * hGap;
-      const startX = centerX - totalW / 2;
-      const y = li * layerGap;
+    const newEdges: Edge[] = [];
 
-      layer.forEach((pnr, i) => {
-        const isFocus = pnr === focusPnr;
-        newNodes.push({
-          id: pnr,
-          position: { x: startX + i * (nodeW + hGap), y },
-          data: { label: getLabel(pnr) },
-          style: isFocus
-            ? {
-                background: "hsl(211, 68%, 40%)", color: "white",
-                border: "3px solid hsl(211, 68%, 25%)", borderRadius: "12px",
-                padding: "12px 20px", fontSize: "14px", fontWeight: "700",
-                minWidth: `${nodeW}px`, textAlign: "center" as const,
-                boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-              }
-            : {
-                background: "hsl(var(--card))", color: "hsl(var(--card-foreground))",
-                border: "2px solid hsl(var(--border))", borderRadius: "10px",
-                padding: "10px 16px", fontSize: "13px", fontWeight: "500",
-                minWidth: `${nodeW}px`, textAlign: "center" as const, cursor: "pointer",
-              },
+    function makeNode(
+      pnr: string,
+      x: number,
+      y: number,
+      variant: PersonNodeData["variant"],
+      opts: { afb?: AfbRelationData } = {},
+    ): Node {
+      const isMissing = variant === "missing-fb" || variant === "missing-afb";
+      const p = pMap.get(pnr);
+      const ex = extrasMap.get(pnr);
+      let name = p ? fullName(p) || pnr : pnr;
+      let pnrLabel = pnr;
+      let gender: string | null = p?.gender ?? null;
+      let birthYear = birthYearFrom(pnr, ex?.fod_datum);
+      let deceased = !!(ex?.antraffad_dod && ex.antraffad_dod.trim() !== "");
+
+      if (variant === "missing-afb" && opts.afb) {
+        name = [opts.afb.afb_rel_fnamn, opts.afb.afb_rel_mnamn, opts.afb.afb_rel_enamn]
+          .filter(Boolean).join(" ").trim() || "Okänd";
+        pnrLabel = "—";
+        birthYear = opts.afb.afb_rel_fodtid ? opts.afb.afb_rel_fodtid.slice(0, 4) : null;
+        gender = null;
+      }
+
+      const tooltipLines: string[] = [];
+      if (p) {
+        tooltipLines.push(fullName(p));
+        tooltipLines.push(`pnr: ${p.pnr}`);
+        if (ex?.fod_datum) tooltipLines.push(`Födelsedatum: ${ex.fod_datum}`);
+        if (ex?.civ) tooltipLines.push(`Civilstånd: ${ex.civ}`);
+        const addr = [p.fb_address1, p.fb_postnr, p.fb_postort].filter(Boolean).join(", ");
+        if (addr) tooltipLines.push(addr);
+      } else if (isMissing) {
+        tooltipLines.push(name);
+        tooltipLines.push(variant === "missing-fb" ? "Person saknas i datasetet" : "Anhörig utan svenskt personnummer");
+      }
+
+      const data: PersonNodeData = {
+        name,
+        pnr: pnrLabel,
+        gender,
+        birthYear,
+        deceased,
+        isFocus: pnr === focusPnr,
+        variant,
+        tooltip: tooltipLines.join("\n"),
+        onClick: () => {
+          if (isMissing) return;
+          setBreadcrumb(prev => [...prev, focusPnr]);
+          navigate(`/relations?person=${pnr}`);
+        },
+      };
+
+      return {
+        id: pnr,
+        type: "person",
+        position: { x, y },
+        data: data as any,
+        draggable: false,
+      };
+    }
+
+    // Helper: lay out a row centered at centerX
+    function layoutRow(pnrs: string[], centerX: number, y: number, variant: PersonNodeData["variant"]) {
+      const totalW = pnrs.length * NODE_W + (pnrs.length - 1) * H_GAP;
+      const startX = centerX - totalW / 2;
+      pnrs.forEach((pnr, i) => {
+        if (newNodes.find(n => n.id === pnr)) return;
+        newNodes.push(makeNode(pnr, startX + i * (NODE_W + H_GAP), y, variant));
+      });
+    }
+
+    const Y_GP = 0;
+    const Y_PARENT = V_GAP;
+    const Y_FOCUS = V_GAP * 2;
+    const Y_CHILD = V_GAP * 3;
+    const Y_GC = V_GAP * 4;
+
+    // Focus row: siblings (left) - focus - partners (right)
+    const siblings = Array.from(siblingMap.keys());
+    const partnersArr = Array.from(partners);
+    const focusRowOrder = [...siblings, focusPnr, ...partnersArr];
+    const centerXBase = 0;
+    // We center on focus, so compute positions explicitly:
+    const focusX = 0;
+    // place focus at focusX, then siblings left, partners right
+    newNodes.push(makeNode(focusPnr, focusX, Y_FOCUS, "focus"));
+    siblings.forEach((s, i) => {
+      const x = focusX - (NODE_W + H_GAP) * (siblings.length - i);
+      newNodes.push(makeNode(s, x, Y_FOCUS, "sibling"));
+    });
+    partnersArr.forEach((p, i) => {
+      const x = focusX + (NODE_W + H_GAP) * (i + 1);
+      newNodes.push(makeNode(p, x, Y_FOCUS, "partner"));
+      newEdges.push({
+        id: `partner-${focusPnr}-${p}`,
+        source: focusPnr,
+        target: p,
+        type: "straight",
+        sourceHandle: undefined,
+        style: { stroke: "#e11d48", strokeWidth: 3 },
+        label: "❤",
+        labelStyle: { fontSize: 14 },
+        labelBgStyle: { fill: "hsl(var(--background))" },
+      });
+    });
+
+    // Parents row: center above focus
+    const parentsArr = Array.from(parents);
+    layoutRow(parentsArr, focusX, Y_PARENT, "parent");
+    // edges parent -> focus + parent -> siblings
+    parentsArr.forEach(par => {
+      const isGuardian = guardiansOnly.has(par);
+      const childPnrs = [focusPnr, ...siblings.filter(s => siblingMap.get(s)?.has(par))];
+      childPnrs.forEach(child => {
+        newEdges.push({
+          id: `parent-${par}-${child}`,
+          source: par,
+          target: child,
+          type: "smoothstep",
+          style: {
+            stroke: isGuardian ? "hsl(var(--muted-foreground))" : "hsl(var(--foreground))",
+            strokeWidth: 1.5,
+            strokeDasharray: isGuardian ? "5 5" : undefined,
+          },
+          markerEnd: { type: MarkerType.ArrowClosed, color: isGuardian ? "hsl(var(--muted-foreground))" : "hsl(var(--foreground))" },
+          label: isGuardian ? "vårdnad" : undefined,
+          labelStyle: { fontSize: 10, fill: "hsl(var(--muted-foreground))" },
+          labelBgStyle: { fill: "hsl(var(--background))" },
         });
       });
     });
 
-    const relationColors: Record<string, string> = {
-      "M": "#e11d48", "Gift med": "#e11d48",
-      "P": "#e11d48", "Partner": "#e11d48",
-      "B": "#7c3aed", "Barn": "#7c3aed",
-      "SY": "#2563eb", "Syskon": "#2563eb",
-      "FA": "#7c3aed", "Förälder": "#7c3aed",
-    };
-
-    const newEdges: Edge[] = uniqueRelations.map((r: RelationData) => {
-      const color = relationColors[r.rel_typ] || "#888";
-      const isMarriage = r.rel_typ === "M" || r.rel_typ === "P";
-      return {
-        id: String(r.id),
-        source: r.person_a,
-        target: r.person_b,
-        label: r.relation_label || r.rel_typ,
-        type: "tooltip",
-        data: { relTyp: r.rel_typ },
-        animated: false,
+    // Sibling line (subtle horizontal indicator between siblings)
+    siblings.forEach(s => {
+      const sharedWithFocus = siblingMap.get(s)!;
+      const fullSibling = parentsArr.length >= 2 && parentsArr.every(p => sharedWithFocus.has(p));
+      newEdges.push({
+        id: `sibling-${s}-${focusPnr}`,
+        source: s,
+        target: focusPnr,
+        type: "straight",
         style: {
-          stroke: color,
-          strokeWidth: 2,
-          strokeDasharray: isMarriage ? "8 4" : undefined,
+          stroke: "hsl(var(--muted-foreground))",
+          strokeWidth: 1,
+          strokeDasharray: fullSibling ? undefined : "4 3",
+          opacity: 0.4,
         },
-        markerEnd: isMarriage ? undefined : { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
+      });
+    });
+
+    // Grandparents row: center above parents (split by which parent if known)
+    const gpList = Array.from(grandparents.keys());
+    layoutRow(gpList, focusX, Y_GP, "grandparent");
+    gpList.forEach(gp => {
+      grandparents.get(gp)!.forEach(par => {
+        newEdges.push({
+          id: `gp-${gp}-${par}`,
+          source: gp,
+          target: par,
+          type: "smoothstep",
+          style: { stroke: "hsl(var(--foreground))", strokeWidth: 1.5 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--foreground))" },
+        });
+      });
+    });
+
+    // Children row: centered between focus and (first) partner
+    const childrenArr = Array.from(children);
+    const childCenter = partnersArr.length > 0
+      ? (focusX + (focusX + (NODE_W + H_GAP))) / 2
+      : focusX;
+    layoutRow(childrenArr, childCenter, Y_CHILD, "child");
+    childrenArr.forEach(ch => {
+      newEdges.push({
+        id: `child-${focusPnr}-${ch}`,
+        source: focusPnr,
+        target: ch,
+        type: "smoothstep",
+        style: { stroke: "hsl(var(--foreground))", strokeWidth: 1.5 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--foreground))" },
+      });
+    });
+
+    // Grandchildren row
+    const gcList = Array.from(grandchildren.keys());
+    layoutRow(gcList, childCenter, Y_GC, "grandchild");
+    gcList.forEach(gc => {
+      grandchildren.get(gc)!.forEach(ch => {
+        newEdges.push({
+          id: `gc-${ch}-${gc}`,
+          source: ch,
+          target: gc,
+          type: "smoothstep",
+          style: { stroke: "hsl(var(--foreground))", strokeWidth: 1.5 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--foreground))" },
+        });
+      });
+    });
+
+    // AfbRelation extra nodes - place to the side at parent level if parent-like, else focus level
+    afbRels.forEach((ar, i) => {
+      const id = `afb-${ar.id}`;
+      const t = ar.rel_typ.toUpperCase();
+      const isParent = PARENT_TYPES.includes(t);
+      const y = isParent ? Y_PARENT : (t === "B" ? Y_CHILD : Y_FOCUS);
+      const x = focusX + (NODE_W + H_GAP) * (partnersArr.length + 2 + i);
+      const name = [ar.afb_rel_fnamn, ar.afb_rel_mnamn, ar.afb_rel_enamn].filter(Boolean).join(" ").trim() || "Okänd";
+      const pnd: PersonNodeData = {
+        name,
+        pnr: "—",
+        gender: null,
+        birthYear: ar.afb_rel_fodtid ? ar.afb_rel_fodtid.slice(0, 4) : null,
+        deceased: false,
+        isFocus: false,
+        variant: "missing-afb",
+        tooltip: `${name}\nUtländsk anhörig\nRelation: ${RELATION_TYPE_DESCRIPTIONS[t] || t}`,
       };
+      newNodes.push({ id, type: "person", position: { x, y }, data: pnd as any, draggable: false });
+      const isUp = isParent;
+      newEdges.push({
+        id: `afb-edge-${ar.id}`,
+        source: isUp ? id : focusPnr,
+        target: isUp ? focusPnr : id,
+        type: "smoothstep",
+        style: { stroke: "hsl(var(--muted-foreground))", strokeWidth: 1.2, strokeDasharray: "4 3", opacity: 0.7 },
+      });
     });
 
     setNodes(newNodes);
     setEdges(newEdges);
     setLoading(false);
-  }, [setNodes, setEdges]);
-
-  const loadAllRelations = useCallback(async () => {
-    setLoading(true);
-
-    const { data: relations } = await supabase
-      .from("kp_person_relationships" as any)
-      .select("*")
-      .limit(500);
-
-    const filtered = ((relations as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
-    if (filtered.length === 0) { setLoading(false); return; }
-
-    setAllRelations(filtered);
-    const relTypes = ([...new Set(filtered.map((r: RelationData) => r.rel_typ))] as string[]).filter(Boolean).sort();
-    setAvailableRelTypes(relTypes);
-
-    const pnrs = new Set<string>();
-    filtered.forEach((r: RelationData) => { pnrs.add(r.person_a); pnrs.add(r.person_b); });
-
-    const { data: persons } = await supabase
-      .from("kp_persons" as any)
-      .select("pnr, first_name, middle_name, last_name, gender, municipality, county, fb_postnr, fb_postort, fb_address1, fb_address2, booked_to_region_stockholm, hsaid")
-      .in("pnr", Array.from(pnrs));
-
-    if (!persons) { setLoading(false); return; }
-    setAllPersons(persons as unknown as PersonData[]);
-
-    const cols = Math.ceil(Math.sqrt((persons as unknown as any[]).length));
-    const newNodes: Node[] = (persons as unknown as PersonData[]).map((p, i) => ({
-      id: p.pnr,
-      position: { x: (i % cols) * 220 + 50, y: Math.floor(i / cols) * 120 + 50 },
-      data: { label: `${p.first_name ?? ""} ${p.last_name ?? ""}` },
-      style: {
-        background: "hsl(var(--card))", color: "hsl(var(--card-foreground))",
-        border: "2px solid hsl(var(--border))", borderRadius: "10px",
-        padding: "10px 16px", fontSize: "13px", fontWeight: "500",
-        minWidth: "120px", textAlign: "center" as const, cursor: "pointer",
-      },
-    }));
-
-    const relationColors: Record<string, string> = {
-      "M": "#e11d48", "P": "#e11d48", "B": "#7c3aed", "SY": "#2563eb", "FA": "#7c3aed",
-    };
-
-    const newEdges: Edge[] = filtered.map((r: RelationData) => ({
-      id: String(r.id),
-      source: r.person_a,
-      target: r.person_b,
-      label: r.relation_label || r.rel_typ,
-      animated: r.rel_typ === "M" || r.rel_typ === "P",
-      style: { stroke: relationColors[r.rel_typ] || "#888", strokeWidth: 2 },
-      labelStyle: { fontSize: "11px", fontWeight: "600", fill: relationColors[r.rel_typ] || "#888" },
-      labelBgStyle: { fill: "hsl(var(--background))", fillOpacity: 0.9 },
-      labelBgPadding: [6, 4] as [number, number],
-      labelBgBorderRadius: 4,
-      markerEnd: { type: MarkerType.ArrowClosed, color: relationColors[r.rel_typ] || "#888", width: 16, height: 16 },
-    }));
-
-    setNodes(newNodes);
-    setEdges(newEdges);
-    setLoading(false);
-  }, [setNodes, setEdges]);
+  }, [navigate, setNodes, setEdges]);
 
   useEffect(() => {
     if (personPnr) {
-      loadGraphForPerson(personPnr);
+      buildTree(personPnr);
     } else {
-      loadAllRelations();
+      // Default to a sample person? Just show empty state.
+      setNodes([]);
+      setEdges([]);
+      setLoading(false);
     }
-  }, [personPnr, loadGraphForPerson, loadAllRelations]);
+  }, [personPnr, buildTree, setNodes, setEdges]);
 
   const handleNodeClick = useCallback(async (_: any, node: Node) => {
-    const person = allPersons.find(p => p.pnr === node.id);
-    if (person) {
-      setSelectedPerson(person);
-      // Fetch all direct relations for this person for the info panel
-      const { data: rels } = await supabase
-        .from("kp_person_relationships" as any)
-        .select("*")
-        .or(`person_a.eq.${node.id},person_b.eq.${node.id}`);
-      const filtered = ((rels as any) ?? []).filter((r: RelationData) => !isExcludedRelation(r));
-      // Deduplicate
-      const edgeMap = new Map<string, RelationData>();
-      for (const r of filtered) {
-        const key = [r.person_a, r.person_b].sort().join("-") + "-" + r.rel_typ;
-        if (!edgeMap.has(key)) edgeMap.set(key, r);
-      }
-      const deduped = Array.from(edgeMap.values());
-      setSelectedPersonRelations(deduped);
-      // Expand all relations by default
-      const allOtherPnrs = new Set<string>();
-      for (const r of deduped) {
-        const otherPnr = r.person_a === node.id ? r.person_b : r.person_a;
-        if (otherPnr) allOtherPnrs.add(otherPnr);
-      }
-      setExpandedRelations(allOtherPnrs);
+    const data = node.data as PersonNodeData;
+    if (data.variant === "missing-fb" || data.variant === "missing-afb") return;
+    const person = personByPnr.get(node.id);
+    if (person) setSelectedPerson(person);
+  }, [personByPnr]);
+
+  const focusPnr = personPnr;
+
+  // Build relation summary for info panel
+  const relationGroups = useMemo(() => {
+    if (!selectedPerson) return [];
+    const map = new Map<string, { otherPnr: string; labels: Set<string>; types: Set<string> }>();
+    for (const r of selectedPersonRelations) {
+      if (isExcluded(r.rel_typ)) continue;
+      const otherPnr = r.person_a === selectedPerson.pnr ? r.person_b : r.person_a;
+      if (!otherPnr || otherPnr === selectedPerson.pnr) continue;
+      if (!map.has(otherPnr)) map.set(otherPnr, { otherPnr, labels: new Set(), types: new Set() });
+      const desc = getRelationDescription(r.rel_typ) || r.relation_label || r.rel_typ;
+      if (desc) map.get(otherPnr)!.labels.add(desc);
+      if (r.rel_typ) map.get(otherPnr)!.types.add(r.rel_typ);
     }
-  }, [allPersons]);
-
-  const handleNodeDoubleClick = useCallback((_: any, node: Node) => {
-    navigate(`/relations?person=${node.id}`);
-  }, [navigate]);
-
-  // Search relation between two persons
-  const searchResults = searchPnr1 && searchPnr2
-    ? allRelations.filter(r =>
-        (r.person_a === searchPnr1 && r.person_b === searchPnr2) ||
-        (r.person_a === searchPnr2 && r.person_b === searchPnr1)
-      )
-    : [];
-
-  // Filtered relations for the currently selected person
-  const selectedPnr = selectedPerson?.pnr || personPnr;
-  const displayedRelations = (selectedPersonRelations.length > 0 ? selectedPersonRelations : allRelations.filter(r =>
-    r.person_a === selectedPnr || r.person_b === selectedPnr
-  )).filter(r =>
-    relTypeFilter === "all" || r.rel_typ === relTypeFilter
-  );
+    return Array.from(map.values());
+  }, [selectedPerson, selectedPersonRelations]);
 
   return (
-    <TooltipProvider delayDuration={200}>
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Relationer</h1>
-          <p className="text-muted-foreground mt-1">
-            {personPnr
-              ? "Relationsgraf för vald person – dubbelklicka på en nod för att fokusera"
-              : "Översikt av alla relationer – klicka för info, dubbelklicka för att fokusera"}
-          </p>
+    <TooltipProvider delayDuration={150}>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Släktträd</h1>
+            <p className="text-muted-foreground mt-1">
+              {focusPnr
+                ? "Klicka på en nod för att se information, klicka igen för att fokusera"
+                : "Välj en person från Personregistret för att se släktträdet"}
+            </p>
+          </div>
+          {focusPnr && (
+            <Button variant="outline" onClick={() => navigate("/persons")} className="gap-2">
+              <ArrowLeft className="h-4 w-4" /> Tillbaka till personer
+            </Button>
+          )}
         </div>
-        {personPnr && (
-          <Button variant="outline" onClick={() => navigate("/relations")} className="gap-2">
-            <ArrowLeft className="h-4 w-4" /> Visa alla
-          </Button>
-        )}
-      </div>
 
-      {/* Search between two persons */}
-      <Card>
-        <CardContent className="pt-4 pb-4">
-          <div className="flex items-end gap-3 flex-wrap">
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Person A (pnr)</label>
-              <Input placeholder="Personnummer..." value={searchPnr1} onChange={e => setSearchPnr1(e.target.value)} className="w-44" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Person B (pnr)</label>
-              <Input placeholder="Personnummer..." value={searchPnr2} onChange={e => setSearchPnr2(e.target.value)} className="w-44" />
-            </div>
-            {availableRelTypes.length > 0 && (
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Relationstyp</label>
-                <Select value={relTypeFilter} onValueChange={setRelTypeFilter}>
-                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alla</SelectItem>
-                    {availableRelTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+        {/* Breadcrumb */}
+        {breadcrumb.length > 0 && (
+          <div className="flex items-center gap-2 text-sm flex-wrap">
+            <span className="text-muted-foreground">Tidigare fokus:</span>
+            {breadcrumb.map((pnr, i) => {
+              const p = personByPnr.get(pnr);
+              return (
+                <button
+                  key={i}
+                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                  onClick={() => {
+                    setBreadcrumb(prev => prev.slice(0, i));
+                    navigate(`/relations?person=${pnr}`);
+                  }}
+                >
+                  {p ? fullName(p) : pnr}
+                  <ChevronRight className="h-3 w-3" />
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex gap-4" style={{ height: "calc(100vh - 280px)" }}>
+          {/* Graph */}
+          <div className="flex-1 rounded-lg border bg-card overflow-hidden relative">
+            {loading ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="text-center space-y-2">
+                  <GitFork className="h-8 w-8 mx-auto animate-pulse" />
+                  <p>Laddar släktträd...</p>
+                </div>
               </div>
+            ) : nodes.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="text-center space-y-2">
+                  <GitFork className="h-12 w-12 mx-auto opacity-30" />
+                  <p>Ingen person vald</p>
+                </div>
+              </div>
+            ) : (
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onNodeClick={handleNodeClick}
+                nodeTypes={nodeTypes}
+                connectionLineType={ConnectionLineType.SmoothStep}
+                fitView
+                fitViewOptions={{ padding: 0.25 }}
+                minZoom={0.2}
+                maxZoom={2}
+                proOptions={{ hideAttribution: true }}
+              >
+                <Background color="hsl(var(--border))" gap={20} size={1} />
+                <Controls showInteractive={false} style={{ bottom: 20, left: 20 }} />
+
+                {/* Generation guide labels */}
+                <Panel position="top-left">
+                  <div className="text-[10px] text-muted-foreground space-y-1 pointer-events-none">
+                    <div>Gen +2 · Far/morföräldrar</div>
+                    <div style={{ marginTop: 110 }}>Gen +1 · Föräldrar</div>
+                    <div style={{ marginTop: 110 }}>Gen 0 · Personen själv</div>
+                    <div style={{ marginTop: 110 }}>Gen −1 · Barn</div>
+                    <div style={{ marginTop: 110 }}>Gen −2 · Barnbarn</div>
+                  </div>
+                </Panel>
+
+                <Panel position="top-right">
+                  <div className="flex gap-1.5 flex-wrap text-[11px] max-w-md justify-end">
+                    {[
+                      { label: "Partner", color: "#e11d48" },
+                      { label: "Förälder/Barn", color: "hsl(var(--foreground))" },
+                      { label: "Syskon (härlett)", color: "hsl(var(--muted-foreground))", dashed: true },
+                      { label: "Vårdnadshavare", color: "hsl(var(--muted-foreground))", dashed: true },
+                      { label: "Avliden †", color: "hsl(var(--foreground))" },
+                    ].map((item) => (
+                      <span key={item.label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-background/90 border">
+                        <span
+                          className="inline-block w-3 h-0.5"
+                          style={{
+                            backgroundColor: item.color,
+                            borderTop: item.dashed ? `1px dashed ${item.color}` : undefined,
+                            backgroundImage: item.dashed ? `repeating-linear-gradient(90deg, ${item.color} 0 3px, transparent 3px 6px)` : undefined,
+                            background: item.dashed ? undefined : item.color,
+                          }}
+                        />
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
+                </Panel>
+              </ReactFlow>
             )}
           </div>
-          {searchPnr1 && searchPnr2 && (
-            <div className="mt-3">
-              {searchResults.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Ingen relation hittad mellan dessa personer.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Person A</TableHead>
-                      <TableHead>Person B</TableHead>
-                      <TableHead>Typ</TableHead>
-                      <TableHead>Etikett</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Från</TableHead>
-                      <TableHead>Till</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {searchResults.map(r => (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-mono text-xs">{r.person_a}</TableCell>
-                        <TableCell className="font-mono text-xs">{r.person_b}</TableCell>
-                        <TableCell>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="cursor-help border-b border-dotted border-muted-foreground/50">{r.rel_typ}</span>
-                            </TooltipTrigger>
-                            <TooltipContent>{getRelationDescription(r.rel_typ) || r.relation_label || r.rel_typ}</TooltipContent>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell>{r.relation_label || "–"}</TableCell>
-                        <TableCell>{r.status || "–"}</TableCell>
-                        <TableCell>{r.start_date || "–"}</TableCell>
-                        <TableCell>{r.end_date || "–"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      <div className="flex gap-4" style={{ height: "calc(100vh - 360px)" }}>
-        {/* Graph */}
-        <div className="flex-1 rounded-lg border bg-card overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <div className="text-center space-y-2">
-                <GitFork className="h-8 w-8 mx-auto animate-pulse" />
-                <p>Laddar relationsgraf...</p>
-              </div>
-            </div>
-          ) : nodes.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <div className="text-center space-y-2">
-                <GitFork className="h-12 w-12 mx-auto opacity-30" />
-                <p>Inga relationer hittades</p>
-              </div>
-            </div>
-          ) : (
-            <ReactFlow
-              nodes={nodes} edges={edges}
-              onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-              onNodeClick={handleNodeClick} onNodeDoubleClick={handleNodeDoubleClick}
-              connectionLineType={ConnectionLineType.SmoothStep}
-              edgeTypes={{ tooltip: TooltipEdge }}
-              fitView fitViewOptions={{ padding: 0.3 }}
-              minZoom={0.3} maxZoom={2}
-              proOptions={{ hideAttribution: true }}
-            >
-              <Background color="hsl(var(--border))" gap={20} size={1} />
-              <Controls showInteractive={false} style={{ bottom: 20, left: 20 }} />
-              <Panel position="top-right">
-                <div className="flex gap-2 flex-wrap text-xs">
-                  {[
-                    { label: "Gift / Partner", color: "#e11d48" },
-                    { label: "Barn (B)", color: "#7c3aed" },
-                    { label: "Syskon (SY)", color: "#2563eb" },
-                  ].map((item) => (
-                    <span key={item.label} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-background/80 border">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                      {item.label}
-                    </span>
-                  ))}
+          {/* Info panel */}
+          {selectedPerson && (
+            <Card className="w-80 shrink-0 overflow-y-auto">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <User className="h-4 w-4" /> Personinformation
+                  </CardTitle>
+                  <button onClick={() => setSelectedPerson(null)} className="text-muted-foreground hover:text-foreground">
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-              </Panel>
-            </ReactFlow>
-          )}
-        </div>
-
-        {/* Info panel */}
-        {selectedPerson && (
-          <Card className="w-80 shrink-0 overflow-y-auto">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <User className="h-4 w-4" /> Personinformation
-                </CardTitle>
-                <button onClick={() => setSelectedPerson(null)} className="text-muted-foreground hover:text-foreground">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-lg">
-                  {selectedPerson.first_name} {selectedPerson.middle_name ? `${selectedPerson.middle_name} ` : ""}{selectedPerson.last_name}
-                </h3>
-                <div className="flex gap-2 mt-1.5">
-                  {selectedPerson.booked_to_region_stockholm && (
-                    <Badge variant="default" className="text-xs">Bokad RS</Badge>
-                  )}
-                  {selectedPerson.hsaid && (
-                    <Badge variant="secondary" className="text-xs">HSA: {selectedPerson.hsaid}</Badge>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2.5 text-sm">
-                <InfoRow label="Personnummer" value={selectedPerson.pnr} mono />
-                <InfoRow label="Kön" value={formatGender(selectedPerson.gender)} />
-                <InfoRow label="Kommun" value={selectedPerson.municipality} />
-                <InfoRow label="Län" value={selectedPerson.county} />
-
-                {(selectedPerson.fb_address1 || selectedPerson.fb_postort) && (
-                  <div className="pt-2 border-t">
-                    <div className="flex items-start gap-2 text-muted-foreground mb-1">
-                      <MapPin className="h-3.5 w-3.5 mt-0.5" />
-                      <span className="text-xs font-medium uppercase tracking-wider">Adress</span>
-                    </div>
-                    {selectedPerson.fb_address1 && <p className="text-sm ml-5">{selectedPerson.fb_address1}</p>}
-                    {selectedPerson.fb_address2 && <p className="text-sm ml-5">{selectedPerson.fb_address2}</p>}
-                    {(selectedPerson.fb_postnr || selectedPerson.fb_postort) && (
-                      <p className="text-sm ml-5">{selectedPerson.fb_postnr} {selectedPerson.fb_postort}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-lg">{fullName(selectedPerson)}</h3>
+                  <p className="text-xs text-muted-foreground font-mono mt-0.5">{selectedPerson.pnr}</p>
+                  <div className="flex gap-2 mt-1.5 flex-wrap">
+                    {selectedPerson.booked_to_region_stockholm && (
+                      <Badge variant="default" className="text-xs">Bokad RS</Badge>
+                    )}
+                    {selectedPerson.hsaid && (
+                      <Badge variant="secondary" className="text-xs">HSA: {selectedPerson.hsaid}</Badge>
                     )}
                   </div>
-                )}
-              </div>
+                </div>
 
-              {/* Person's relations list */}
-              {selectedPnr && displayedRelations.length > 0 && (
-                <div className="pt-2 border-t">
-                  <h4 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Relationer</h4>
-                  <div className="space-y-2">
-                    {(() => {
-                      const grouped = new Map<string, { otherPnr: string; labels: Set<string>; relTypes: Set<string> }>();
-                      for (const r of displayedRelations) {
-                        const otherPnr = r.person_a === selectedPnr ? r.person_b : r.person_a;
-                        if (!otherPnr || otherPnr === selectedPnr) continue;
-                        if (!grouped.has(otherPnr)) {
-                          grouped.set(otherPnr, { otherPnr, labels: new Set(), relTypes: new Set() });
-                        }
-                        const desc = getRelationDescription(r.rel_typ) || r.relation_label || r.rel_typ;
-                        if (desc) grouped.get(otherPnr)!.labels.add(desc);
-                        if (r.rel_typ) grouped.get(otherPnr)!.relTypes.add(r.rel_typ);
-                      }
-                      return Array.from(grouped.values()).map(({ otherPnr, labels, relTypes }) => {
-                        const otherPerson = allPersons.find(p => p.pnr === otherPnr);
-                        const relationColors: Record<string, string> = {
-                          "M": "bg-rose-100 text-rose-800 border-rose-200",
-                          "B": "bg-violet-100 text-violet-800 border-violet-200",
-                          "FA": "bg-violet-100 text-violet-800 border-violet-200",
-                          "MO": "bg-violet-100 text-violet-800 border-violet-200",
-                          "F": "bg-violet-100 text-violet-800 border-violet-200",
-                          "SY": "bg-blue-100 text-blue-800 border-blue-200",
-                          "P": "bg-pink-100 text-pink-800 border-pink-200",
-                          "V": "bg-amber-100 text-amber-800 border-amber-200",
-                          "VF": "bg-amber-100 text-amber-800 border-amber-200",
-                        };
-                        const firstType = Array.from(relTypes)[0] || "";
-                        const colorClass = relationColors[firstType] || "bg-muted text-muted-foreground border-border";
-                        const name = otherPerson ? `${otherPerson.first_name} ${otherPerson.last_name}` : null;
-                        const isExpanded = expandedRelations.has(otherPnr);
+                <div className="space-y-2 text-sm">
+                  <InfoRow label="Kön" value={selectedPerson.gender === "K" ? "Kvinna" : selectedPerson.gender === "M" ? "Man" : null} />
+                  <InfoRow label="Kommun" value={selectedPerson.municipality} />
+                  <InfoRow label="Län" value={selectedPerson.county} />
+                  {(selectedPerson.fb_address1 || selectedPerson.fb_postort) && (
+                    <div className="pt-2 border-t">
+                      <div className="flex items-start gap-2 text-muted-foreground mb-1">
+                        <MapPin className="h-3.5 w-3.5 mt-0.5" />
+                        <span className="text-xs font-medium uppercase tracking-wider">Adress</span>
+                      </div>
+                      {selectedPerson.fb_address1 && <p className="text-sm ml-5">{selectedPerson.fb_address1}</p>}
+                      {(selectedPerson.fb_postnr || selectedPerson.fb_postort) && (
+                        <p className="text-sm ml-5">{selectedPerson.fb_postnr} {selectedPerson.fb_postort}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {relationGroups.length > 0 && (
+                  <div className="pt-2 border-t">
+                    <h4 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Relationer</h4>
+                    <div className="space-y-2">
+                      {relationGroups.map(({ otherPnr, labels }) => {
+                        const other = personByPnr.get(otherPnr);
+                        const name = other ? fullName(other) : null;
                         return (
-                          <div
+                          <button
                             key={otherPnr}
-                            className={`rounded-lg border p-2.5 cursor-pointer hover:shadow-sm transition-all ${colorClass} ${!isExpanded ? "opacity-50" : ""}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedRelations(prev => {
-                                const next = new Set(prev);
-                                if (next.has(otherPnr)) {
-                                  next.delete(otherPnr);
-                                } else {
-                                  next.add(otherPnr);
-                                }
-                                return next;
-                              });
-                            }}
-                            onDoubleClick={(e) => {
-                              e.stopPropagation();
+                            className="w-full text-left rounded-lg border p-2.5 hover:bg-accent/30 transition-colors"
+                            onClick={() => {
+                              if (focusPnr) setBreadcrumb(prev => [...prev, focusPnr]);
                               navigate(`/relations?person=${otherPnr}`);
                             }}
                           >
-                            <div className="space-y-1">
-                              <p className="text-xs font-semibold truncate">
-                                {name || otherPnr}
-                              </p>
-                              {name && (
-                                <p className="text-[10px] opacity-70 font-mono">{otherPnr}</p>
-                              )}
-                              <div className="flex flex-wrap gap-1">
-                                {Array.from(labels).map(label => (
-                                  <Badge key={label} variant="outline" className="text-[10px] border-current/30 bg-white/50">
-                                    {label}
-                                  </Badge>
-                                ))}
-                              </div>
+                            <p className="text-sm font-semibold truncate">
+                              {name || <span className="text-muted-foreground italic">Person ej i datasetet</span>}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground font-mono">{otherPnr}</p>
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {Array.from(labels).map(label => (
+                                <Badge key={label} variant="outline" className="text-[10px]">{label}</Badge>
+                              ))}
                             </div>
-                          </div>
+                          </button>
                         );
-                      });
-                    })()}
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="pt-2 border-t">
-                <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => navigate(`/relations?person=${selectedPerson.pnr}`)}>
-                  <GitFork className="h-4 w-4" /> Visa relationer för denna person
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                {selectedPerson.pnr !== focusPnr && (
+                  <div className="pt-2 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => {
+                        if (focusPnr) setBreadcrumb(prev => [...prev, focusPnr]);
+                        navigate(`/relations?person=${selectedPerson.pnr}`);
+                      }}
+                    >
+                      <GitFork className="h-4 w-4" /> Visa släktträd för denna person
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
-    </div>
     </TooltipProvider>
   );
 }
 
-function InfoRow({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
-  if (!value || value === "–") return null;
+function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
   return (
     <div className="flex justify-between gap-2">
       <span className="text-muted-foreground">{label}</span>
-      <span className={`font-medium text-right ${mono ? "font-mono text-xs" : ""}`}>{value}</span>
+      <span className="font-medium text-right">{value}</span>
     </div>
   );
 }
