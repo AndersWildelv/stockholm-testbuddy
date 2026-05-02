@@ -29,7 +29,7 @@ export default function AdminPage() {
   const handleReset = async () => {
     setIsResetting(true);
     setLastResult(null);
-    const tables = ["bookings", "relations", "audit_log", "import_batches", "persons"] as const;
+    const tables = ["bookings", "relations", "audit_log", "persons"] as const;
     const results: string[] = [];
     try {
       for (const table of tables) {
@@ -139,9 +139,9 @@ export default function AdminPage() {
                   <li>persons (alla testpersoner)</li>
                   <li>relations (alla relationer)</li>
                   <li>bookings (alla bokningar)</li>
-                  <li>import_batches (importhistorik)</li>
                   <li>audit_log (audit-händelser)</li>
                 </ul>
+                <p className="mt-2 text-xs text-muted-foreground">Importhistorik bevaras.</p>
               </div>
 
               <div className="space-y-2">
