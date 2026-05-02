@@ -29,18 +29,26 @@ export default function AdminPage() {
   const handleReset = async () => {
     setIsResetting(true);
     setLastResult(null);
-    const tables = ["bookings", "relations", "audit_log", "persons"] as const;
+    // Tabeller med id-kolumn (uuid) respektive pnr-PK (kp_persons)
+    const tables: { name: string; pk: string }[] = [
+      { name: "bookings", pk: "id" },
+      { name: "relations", pk: "id" },
+      { name: "audit_log", pk: "id" },
+      { name: "kp_person_relationships", pk: "id" },
+      { name: "persons", pk: "id" },
+      { name: "kp_persons", pk: "pnr" },
+    ];
     const results: string[] = [];
     try {
-      for (const table of tables) {
+      for (const { name, pk } of tables) {
         const { error, count } = await (supabase as any)
-          .from(table)
+          .from(name)
           .delete({ count: "exact" })
-          .not("id", "is", null);
+          .not(pk, "is", null);
         if (error) {
-          results.push(`❌ ${table}: ${error.message}`);
+          results.push(`❌ ${name}: ${error.message}`);
         } else {
-          results.push(`✓ ${table}: ${count ?? 0} rader borttagna`);
+          results.push(`✓ ${name}: ${count ?? 0} rader borttagna`);
         }
       }
       // Reset session-local state
@@ -136,8 +144,10 @@ export default function AdminPage() {
               <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
                 <p className="font-medium text-destructive mb-2">Följande tabeller kommer att tömmas:</p>
                 <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                  <li>persons (alla testpersoner)</li>
-                  <li>relations (alla relationer)</li>
+                  <li>kp_persons (alla testpersoner)</li>
+                  <li>kp_person_relationships (alla relationer)</li>
+                  <li>persons (legacy-tabell)</li>
+                  <li>relations (legacy-tabell)</li>
                   <li>bookings (alla bokningar)</li>
                   <li>audit_log (audit-händelser)</li>
                 </ul>
