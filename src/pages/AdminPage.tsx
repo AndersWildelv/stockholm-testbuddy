@@ -33,9 +33,8 @@ export default function AdminPage() {
     const results: string[] = [];
     try {
       for (const table of tables) {
-        const { error, count } = await supabase
+        const { error, count } = await (supabase as any)
           .from(table)
-          // @ts-expect-error - generic delete on union of tables
           .delete({ count: "exact" })
           .not("id", "is", null);
         if (error) {
