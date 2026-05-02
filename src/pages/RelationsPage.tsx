@@ -97,8 +97,14 @@ function genderSymbol(g: string | null | undefined) {
   return "";
 }
 
+function clean(s: string | null | undefined): string {
+  if (!s) return "";
+  // Strip surrounding slashes that PU service uses for unverified names
+  return s.replace(/^\/+|\/+$/g, "").trim();
+}
+
 function fullName(p: { first_name?: string | null; middle_name?: string | null; last_name?: string | null }) {
-  return [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ").trim();
+  return [clean(p.first_name), clean(p.middle_name), clean(p.last_name)].filter(Boolean).join(" ").trim();
 }
 
 // ───────── Custom Node ─────────
@@ -215,27 +221,37 @@ export default function RelationsPage() {
     const parents = new Set<string>();
     const children = new Set<string>();
     const partners = new Set<string>();
-    const guardiansOnly = new Set<string>(); // V (guardian, not biological)
-    const parentEdgeTypes = new Map<string, string>(); // childPnr->parentPnr label key
+    const biologicalParents = new Set<string>(); // MO/FA/F/B (not V/VF)
+    const guardianFlags = new Set<string>(); // V/VF candidates
 
-    const PARENT_TYPES = ["MO", "FA", "F", "VF", "V"];
+    const BIO_PARENT_TYPES = ["MO", "FA", "F"];
+    const GUARDIAN_TYPES = ["V", "VF"];
+    const PARENT_TYPES = [...BIO_PARENT_TYPES, ...GUARDIAN_TYPES];
     for (const r of focusRelations) {
       const t = r.rel_typ.toUpperCase();
       const a = r.person_a, b = r.person_b;
       if (a === focusPnr) {
         if (PARENT_TYPES.includes(t)) {
           parents.add(b);
-          if (t === "V") guardiansOnly.add(b);
+          if (BIO_PARENT_TYPES.includes(t)) biologicalParents.add(b);
+          else guardianFlags.add(b);
         } else if (t === "B") children.add(b);
         else if (t === "M" || t === "P") partners.add(b);
       } else if (b === focusPnr) {
-        if (PARENT_TYPES.includes(t)) {
-          children.add(a);
-          if (t === "V") guardiansOnly.add(a);
-        } else if (t === "B") parents.add(a);
+        if (BIO_PARENT_TYPES.includes(t)) {
+          parents.add(a);
+          biologicalParents.add(a);
+        } else if (GUARDIAN_TYPES.includes(t)) {
+          // (X, focus, VF) means X is guardian of focus -> X is parent
+          parents.add(a);
+          guardianFlags.add(a);
+        } else if (t === "B") parents.add(a); // (X, focus, B) means focus is child of X
         else if (t === "M" || t === "P") partners.add(a);
       }
     }
+    // A guardian-only flag means: never appears as MO/FA/F → mark as non-bio
+    const guardiansOnly = new Set<string>();
+    for (const g of guardianFlags) if (!biologicalParents.has(g)) guardiansOnly.add(g);
 
     // Step 2: get grandparents, grandchildren, sibling-detection via shared parents
     // Need: parents-of-parents, parents-of-children's children, and parents-of-anyone-who-shares-our-parents
@@ -420,9 +436,9 @@ export default function RelationsPage() {
       };
     }
 
-    // Helper: lay out a row centered at centerX
+    // Helper: lay out a row centered at centerX (centerX = midpoint of the row)
     function layoutRow(pnrs: string[], centerX: number, y: number, variant: PersonNodeData["variant"]) {
-      const totalW = pnrs.length * NODE_W + (pnrs.length - 1) * H_GAP;
+      const totalW = pnrs.length * NODE_W + Math.max(0, pnrs.length - 1) * H_GAP;
       const startX = centerX - totalW / 2;
       pnrs.forEach((pnr, i) => {
         if (newNodes.find(n => n.id === pnr)) return;
@@ -436,28 +452,31 @@ export default function RelationsPage() {
     const Y_CHILD = V_GAP * 3;
     const Y_GC = V_GAP * 4;
 
-    // Focus row: siblings (left) - focus - partners (right)
+    // focusCenterX = X coordinate of the CENTER of the focus node
+    const focusCenterX = 0;
+    const focusLeftX = focusCenterX - NODE_W / 2;
+
     const siblings = Array.from(siblingMap.keys());
     const partnersArr = Array.from(partners);
-    const focusRowOrder = [...siblings, focusPnr, ...partnersArr];
-    const centerXBase = 0;
-    // We center on focus, so compute positions explicitly:
-    const focusX = 0;
-    // place focus at focusX, then siblings left, partners right
-    newNodes.push(makeNode(focusPnr, focusX, Y_FOCUS, "focus"));
+
+    // Place focus
+    newNodes.push(makeNode(focusPnr, focusLeftX, Y_FOCUS, "focus"));
+
+    // Siblings to the left of focus
     siblings.forEach((s, i) => {
-      const x = focusX - (NODE_W + H_GAP) * (siblings.length - i);
+      const x = focusLeftX - (NODE_W + H_GAP) * (siblings.length - i);
       newNodes.push(makeNode(s, x, Y_FOCUS, "sibling"));
     });
+
+    // Partners to the right of focus
     partnersArr.forEach((p, i) => {
-      const x = focusX + (NODE_W + H_GAP) * (i + 1);
+      const x = focusLeftX + (NODE_W + H_GAP) * (i + 1);
       newNodes.push(makeNode(p, x, Y_FOCUS, "partner"));
       newEdges.push({
         id: `partner-${focusPnr}-${p}`,
         source: focusPnr,
         target: p,
         type: "straight",
-        sourceHandle: undefined,
         style: { stroke: "#e11d48", strokeWidth: 3 },
         label: "❤",
         labelStyle: { fontSize: 14 },
@@ -465,9 +484,9 @@ export default function RelationsPage() {
       });
     });
 
-    // Parents row: center above focus
+    // Parents row: centered above focus
     const parentsArr = Array.from(parents);
-    layoutRow(parentsArr, focusX, Y_PARENT, "parent");
+    layoutRow(parentsArr, focusCenterX, Y_PARENT, "parent");
     // edges parent -> focus + parent -> siblings
     parentsArr.forEach(par => {
       const isGuardian = guardiansOnly.has(par);
@@ -511,7 +530,7 @@ export default function RelationsPage() {
 
     // Grandparents row: center above parents (split by which parent if known)
     const gpList = Array.from(grandparents.keys());
-    layoutRow(gpList, focusX, Y_GP, "grandparent");
+    layoutRow(gpList, focusCenterX, Y_GP, "grandparent");
     gpList.forEach(gp => {
       grandparents.get(gp)!.forEach(par => {
         newEdges.push({
@@ -528,8 +547,8 @@ export default function RelationsPage() {
     // Children row: centered between focus and (first) partner
     const childrenArr = Array.from(children);
     const childCenter = partnersArr.length > 0
-      ? (focusX + (focusX + (NODE_W + H_GAP))) / 2
-      : focusX;
+      ? (focusCenterX + (focusCenterX + (NODE_W + H_GAP))) / 2
+      : focusCenterX;
     layoutRow(childrenArr, childCenter, Y_CHILD, "child");
     childrenArr.forEach(ch => {
       newEdges.push({
@@ -564,7 +583,7 @@ export default function RelationsPage() {
       const t = ar.rel_typ.toUpperCase();
       const isParent = PARENT_TYPES.includes(t);
       const y = isParent ? Y_PARENT : (t === "B" ? Y_CHILD : Y_FOCUS);
-      const x = focusX + (NODE_W + H_GAP) * (partnersArr.length + 2 + i);
+      const x = focusCenterX + (NODE_W + H_GAP) * (partnersArr.length + 2 + i);
       const name = [ar.afb_rel_fnamn, ar.afb_rel_mnamn, ar.afb_rel_enamn].filter(Boolean).join(" ").trim() || "Okänd";
       const pnd: PersonNodeData = {
         name,
