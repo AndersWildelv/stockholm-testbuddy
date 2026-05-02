@@ -29,18 +29,26 @@ export default function AdminPage() {
   const handleReset = async () => {
     setIsResetting(true);
     setLastResult(null);
-    const tables = ["bookings", "relations", "audit_log", "persons"] as const;
+    // Tabeller med id-kolumn (uuid) respektive pnr-PK (kp_persons)
+    const tables: { name: string; pk: string }[] = [
+      { name: "bookings", pk: "id" },
+      { name: "relations", pk: "id" },
+      { name: "audit_log", pk: "id" },
+      { name: "kp_person_relationships", pk: "id" },
+      { name: "persons", pk: "id" },
+      { name: "kp_persons", pk: "pnr" },
+    ];
     const results: string[] = [];
     try {
-      for (const table of tables) {
+      for (const { name, pk } of tables) {
         const { error, count } = await (supabase as any)
-          .from(table)
+          .from(name)
           .delete({ count: "exact" })
-          .not("id", "is", null);
+          .not(pk, "is", null);
         if (error) {
-          results.push(`❌ ${table}: ${error.message}`);
+          results.push(`❌ ${name}: ${error.message}`);
         } else {
-          results.push(`✓ ${table}: ${count ?? 0} rader borttagna`);
+          results.push(`✓ ${name}: ${count ?? 0} rader borttagna`);
         }
       }
       // Reset session-local state
